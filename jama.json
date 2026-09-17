@@ -34,8 +34,8 @@
   {
     "name": "[MISRA] Use Fixed-Width Types That State Size and Signedness",
     "category": "Correctness",
-    "severity": "error",
-    "content": "Weak Typing (MISRA C essential type model). NEVER declare data whose width or signedness matters using plain char, short, int, or long: their sizes are implementation-defined and move between toolchains. ALWAYS use the stdint.h typedefs that state both, such as uint32_t and int8_t. Raise nothing unless the implementation-defined declaration is visible in the diff. (MISRA C 2025 Dir 4.6 Advisory | MISRA C 2025 Rule 10.x | Jama Software MISRA C guide)",
+    "severity": "recommendation",
+    "content": "Weak Typing (MISRA C essential type model). NEVER declare data whose width or signedness matters using plain char, short, int, or long: their sizes are implementation-defined and move between toolchains. ALWAYS use the stdint.h typedefs that state both, such as uint32_t and int8_t. Raise nothing unless the implementation-defined declaration is visible in the diff. (MISRA C 2025 Dir 4.6 Advisory | Jama Software MISRA C guide)",
     "goodExamples": "#include <stdint.h>\n\ntypedef struct {\n    uint32_t odometer_m;\n    int8_t   cabin_temp_c;\n} telemetry_t;",
     "badExamples": "typedef struct {\n    unsigned long odometer_m; /* 32 or 64 bits depending on the target */\n    char          cabin_temp_c; /* signedness is implementation-defined */\n} telemetry_t;"
   },
@@ -92,8 +92,8 @@
     "category": "Quality",
     "severity": "warning",
     "content": "Deprecated Features (MISRA C++ 2023). NEVER introduce a construct C++17 marks deprecated; it is scheduled for removal and leaves the project unable to move to a later standard without rework. ALWAYS use the replacement the standard names. Raise nothing unless the deprecated construct is visible in the diff. (MISRA C++ 2023 | Jama Software MISRA C guide)",
-    "goodExamples": "std::unique_ptr<Decoder> make_decoder()\n{\n    return std::make_unique<Decoder>();\n}",
-    "badExamples": "std::auto_ptr<Decoder> make_decoder()\n{\n    return std::auto_ptr<Decoder>(new Decoder());\n}"
+    "goodExamples": "#include <type_traits>\n\ntemplate <typename T>\nusing result_t = std::invoke_result_t<T>;",
+    "badExamples": "#include <type_traits>\n\ntemplate <typename T>\nusing result_t = typename std::result_of<T()>::type; /* deprecated in C++17 */"
   },
   {
     "name": "[MISRA] Implicit Conversion to bool",
@@ -237,7 +237,7 @@
     "severity": "warning",
     "content": "DO-178C (airborne software). DO-178C sets coding-standard objectives aligned with MISRA without naming the guidelines directly, so the project's own coding standard is the artifact the objectives are assessed against. NEVER introduce a construct the project standard excludes, and never change that standard without reassessing the affected objectives. Raise nothing unless the source or the standard is visible in the diff. (DO-178C 6.3.4 | DO-178C 11.8 | Jama Software MISRA C guide)",
     "goodExamples": "/* @do178c DAL-C  @standard coding-standard-v3.2  @req SRS-0491 */\nstatic uint16_t altitude_delta_ft(uint16_t a, uint16_t b);",
-    "badExamples": "/* DAL-C source using a construct the project coding standard excludes,\n   with no reassessment recorded. */\nstatic uint16_t altitude_delta_ft(uint16_t a, uint16_t b) { goto retry; }"
+    "badExamples": "/* DAL-C source using a construct the project coding standard excludes,\n   with no reassessment recorded. */\nstatic uint16_t altitude_delta_ft(uint16_t a, uint16_t b)\n{\n    goto retry;\nretry:\n    return (uint16_t)(a - b);\n}"
   },
   {
     "name": "[MISRA] IEC 62304 Coding Standard for Medical Device Software",
@@ -277,6 +277,10 @@
     "severity": "warning",
     "content": "Live Traceability (MISRA Compliance evidence). MISRA analysis happens at the code level, but the compliance claim built on it depends on requirements and test artifacts staying connected to that code, so that a changed upstream requirement flags its downstream tests before the gap becomes a defect. NEVER add or change safety-related code without the requirement identifier it satisfies. Raise nothing unless the safety-related change is visible in the diff. (MISRA Compliance 2020 | ISO 26262-6 | DO-178C 6.3.4 | Jama Software MISRA C guide)",
     "goodExamples": "/* @req SRS-0491  @test TC-1183  @asil B */\nstatic bool brake_pressure_valid(uint16_t raw)\n{\n    return (raw >= PRESSURE_MIN_RAW) && (raw <= PRESSURE_MAX_RAW);\n}",
+    "badExamples": "static bool brake_pressure_valid(uint16_t raw)\n{\n    return (raw >= PRESSURE_MIN_RAW) && (raw <= PRESSURE_MAX_RAW);\n}"
+  }
+]
+6_t raw)\n{\n    return (raw >= PRESSURE_MIN_RAW) && (raw <= PRESSURE_MAX_RAW);\n}",
     "badExamples": "static bool brake_pressure_valid(uint16_t raw)\n{\n    return (raw >= PRESSURE_MIN_RAW) && (raw <= PRESSURE_MAX_RAW);\n}"
   }
 ]
