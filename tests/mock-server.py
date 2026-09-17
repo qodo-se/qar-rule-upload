@@ -3,6 +3,9 @@
 
     mock-server.py <port> [--expect <rules.json>]
 
+GET /rules/v1/metadata is served too, under the same auth rules, because that
+is the preflight probe the script runs before its first POST.
+
 Unarmed it enforces only the generic wire contract: the six required fields,
 no extras, a known severity, 409 on a repeated name.
 
@@ -19,7 +22,24 @@ SEVERITIES = {"error", "warning", "recommendation"}
 REQUIRED = ["name", "category", "severity", "content", "goodExamples", "badExamples"]
 ALLOWED = set(REQUIRED) | {"scopes"}
 RULE_PATH = "/rules/v1/rule"
+METADATA_PATH = "/rules/v1/metadata"
+# The principal-resolution GET that endpoint-validator.sh hunts for. Exactly one
+# path serves it, so a validator run has to actually find this one.
+USERS_PATH = "/platform/v2/users"
 BEARER = "Bearer "
+
+# What GET /rules/v1/metadata reports as the workspace's existing categories.
+# "Architecture" is deliberately absent so the upload script has something to
+# flag as a category this workspace does not use yet.
+CATEGORIES = [
+    "Security",
+    "Correctness",
+    "Quality",
+    "Reliability",
+    "Performance",
+    "Testability",
+    "Observability",
+]
 
 expect_path = None
 expect = None  # fixture entries, or None when unarmed
@@ -27,6 +47,8 @@ expect = None  # fixture entries, or None when unarmed
 seen_names = set()
 next_id = [40]
 log = []
+metadata_log = []
+users_log = []
 auth_failures = []
 
 
@@ -185,7 +207,53 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, log)
         if self.path == "/__verify__":
             return self._send(200, verdict())
+        if self.path == "/__metalog__":
+            return self._send(200, metadata_log)
+        if self.path == "/__userslog__":
+            return self._send(200, users_log)
+        if self.path == METADATA_PATH:
+            return self._metadata()
+        if self.path == USERS_PATH:
+            return self._users()
         return self._send(404, {"detail": "Not Found"})
+
+    def _users(self):
+        """GET /platform/v2/users - principal resolution, bearer only."""
+        auth = self.headers.get("Authorization", "")
+        problem = bearer_problem(auth)
+        if problem:
+            return self._send(401, {"detail": problem})
+        token = auth[len(BEARER):]
+        if token == "bad-token":
+            return self._send(401, {"detail": "Invalid authentication credentials"})
+        if token == "no-perms":
+            return self._send(403, {"detail": "workspace access denied"})
+        users_log.append({"token": token, "workspace": self.headers.get("qodo-workspace-id")})
+        return self._send(200, {"data": {"user": {
+            "email": "user@example.com",
+            "tenant_id": "00000000-0000-0000-0000-0000000000ff",
+            "organization_id": "org-1",
+            "organization_permission": "admin",
+            "is_scoped_key": False,
+        }}})
+
+    def _metadata(self):
+        """The preflight probe: same auth as a write, but read-only."""
+        auth = self.headers.get("Authorization", "")
+        problem = bearer_problem(auth)
+        if problem:
+            return self._send(401, {"detail": problem})
+        token = auth[len(BEARER):]
+        if token == "bad-token":
+            return self._send(401, {"detail": "Invalid authentication credentials"})
+        if token == "no-perms":
+            return self._send(403, {"detail": "workspace access denied"})
+        metadata_log.append({"token": token, "workspace": self.headers.get("qodo-workspace-id")})
+        return self._send(200, {
+            "categories": list(CATEGORIES),
+            "severities": sorted(SEVERITIES),
+            "sourceTypes": ["User", "System"],
+        })
 
 
 def load_expect(path):

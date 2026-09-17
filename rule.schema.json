@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/qodo-se/qar-rule-upload/main/rule.schema.json",
+  "title": "qar-rule-upload input file",
+  "description": "The JSON array upload-rules.sh reads. Each entry becomes one POST body for {base-url}/rules/v1/rule, whose request model is qodo-platform's RuleCreateRequest (operationId create_rule_rules_v1_rule_post). This schema describes the file as written, not the wire body: it also allows the snake_case example aliases and the mixed-case severity the script normalises before sending. A file that validates here passes the script's own validation, and a file that fails here is rejected by the script before the first request.",
+  "type": "array",
+  "minItems": 1,
+  "items": { "$ref": "#/$defs/rule" },
+  "$defs": {
+    "rule": {
+      "title": "rule",
+      "description": "One rule. The six contract fields are mandatory; scopes is the only optional one the script forwards. Any other field (sourceType, state, ruleId, createdAt, ...) is accepted here and dropped with a note before the POST, so a GET response can be round-tripped back into an upload unedited.",
+      "type": "object",
+      "required": ["name", "category", "severity", "content"],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonBlankString",
+          "type": "string",
+          "maxLength": 128,
+          "description": "Concise rule name, unique in the workspace - a duplicate comes back as HTTP 409. Max 128 characters (RuleCreateRequest.name)."
+        },
+        "category": {
+          "$ref": "#/$defs/nonBlankString",
+          "description": "Rule category. The API accepts any non-empty string, so a typo here quietly creates a new category rather than failing; GET /rules/v1/metadata lists the ones a workspace already uses.",
+          "examples": [
+            "Security",
+            "Correctness",
+            "Quality",
+            "Reliability",
+            "Performance",
+            "Testability",
+            "Compliance",
+            "Accessibility",
+            "Observability",
+            "Architecture"
+          ]
+        },
+        "severity": { "$ref": "#/$defs/severity" },
+        "content": {
+          "$ref": "#/$defs/nonBlankString",
+          "description": "What the rule checks or enforces, 1-3 sentences, imperative voice."
+        },
+        "goodExamples": {
+          "$ref": "#/$defs/examples",
+          "description": "Code that FOLLOWS the rule. May be \"\", but the key must be present - as goodExamples or as good_examples."
+        },
+        "badExamples": {
+          "$ref": "#/$defs/examples",
+          "description": "Code that VIOLATES the rule. May be \"\", but the key must be present - as badExamples or as bad_examples."
+        },
+        "good_examples": {
+          "$ref": "#/$defs/examples",
+          "description": "snake_case alias for goodExamples, renamed by the script before the POST."
+        },
+        "bad_examples": {
+          "$ref": "#/$defs/examples",
+          "description": "snake_case alias for badExamples, renamed by the script before the POST."
+        },
+        "scopes": { "$ref": "#/$defs/scopes" }
+      },
+      "allOf": [
+        {
+          "$comment": "goodExamples or its alias must be present; the platform requires the key even when the value is empty.",
+          "anyOf": [
+            { "required": ["goodExamples"] },
+            { "required": ["good_examples"] }
+          ]
+        },
+        {
+          "$comment": "badExamples or its alias must be present.",
+          "anyOf": [
+            { "required": ["badExamples"] },
+            { "required": ["bad_examples"] }
+          ]
+        }
+      ],
+      "additionalProperties": true
+    },
+    "nonBlankString": {
+      "type": "string",
+      "pattern": "\\S",
+      "description": "A string carrying at least one non-whitespace character. The script trims before checking, so \"\" and \"   \" are both rejected."
+    },
+    "severity": {
+      "title": "severity",
+      "description": "RuleSeverity: error = must comply; warning = comply by default; recommendation = apply when appropriate. The script lowercases and trims, so \"Error\" and \" WARNING \" are accepted in the file and sent as \"error\" and \"warning\".",
+      "type": "string",
+      "pattern": "^\\s*([Ee][Rr][Rr][Oo][Rr]|[Ww][Aa][Rr][Nn][Ii][Nn][Gg]|[Rr][Ee][Cc][Oo][Mm][Mm][Ee][Nn][Dd][Aa][Tt][Ii][Oo][Nn])\\s*$",
+      "examples": ["error", "warning", "recommendation"]
+    },
+    "examples": {
+      "title": "examples",
+      "description": "A code snippet as a single string. Empty is allowed; a list or an object is not.",
+      "type": "string"
+    },
+    "scopes": {
+      "title": "scopes",
+      "description": "Repository paths the rule applies to, e.g. \"/owner/repo/\" or \"/owner/repo/src/module/\". Max 100 (RuleCreateRequest.scopes maxItems). Omit the key for the universal scope \"/\"; [] is accepted and normalised to \"/\" by the platform. Entries are trimmed, and a bare string is wrapped into a one-element list.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/nonBlankString",
+          "title": "a single path, wrapped into a list by the script"
+        },
+        {
+          "title": "a list of paths",
+          "type": "array",
+          "maxItems": 100,
+          "items": { "type": "string" },
+          "anyOf": [
+            {
+              "$comment": "The universal scope.",
+              "maxItems": 0
+            },
+            {
+              "$comment": "A non-empty list needs at least one non-blank entry; blank ones are dropped.",
+              "contains": { "$ref": "#/$defs/nonBlankString" }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -42,11 +42,16 @@ check() { # check <desc> <expected-exit> <actual-exit>
   else FAIL=$((FAIL+1)); echo "  FAIL: $1 (expected exit $2, got $3)"; fi
 }
 
+check_eq() { # check_eq <desc> <expected> <actual>
+  if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "  PASS: $1";
+  else FAIL=$((FAIL+1)); echo "  FAIL: $1 (wanted '$2', got '$3')"; fi
+}
+
 banner() { echo; echo "=============== $* ==============="; }
 
 banner "T1  happy path, 2 args, token from \$QODO_API_KEY"
 QODO_API_KEY=sk-default-var ./upload-rules.sh "$BASE" rule.json
-check "6 rules created" 0 $?
+check "every rule in rule.json created" 0 $?
 
 banner "T2  re-upload is idempotent-ish (all 409)"
 QODO_API_KEY=sk-default-var ./upload-rules.sh "$BASE" rule.json
@@ -162,20 +167,16 @@ WANT="$HOST$WANTPATH"
 endpoint_of() {
   QODO_API_KEY=sk-x ./upload-rules.sh "$@" --dry-run 2>&1 | sed -n 's/^endpoint  *//p'
 }
-check_url() { # check_url <desc> <expected> <actual>
-  if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "  PASS: $1";
-  else FAIL=$((FAIL+1)); echo "  FAIL: $1 (wanted '$2', got '$3')"; fi
-}
-check_url "bare platform host"             "$WANT" "$(endpoint_of "$HOST" rule.json)"
-check_url "trailing slash tolerated"       "$WANT" "$(endpoint_of "$HOST/" rule.json)"
-check_url "base already has /rules"        "$WANT" "$(endpoint_of "$HOST/rules" rule.json)"
-check_url "base already has /rules/v1"     "$WANT" "$(endpoint_of "$HOST/rules/v1" rule.json)"
-check_url "full endpoint URL, not doubled" "$WANT" "$(endpoint_of "$WANT" rule.json)"
-check_url "--path '' posts base verbatim"  "$WANT" "$(endpoint_of "$WANT" rule.json --path '')"
-check_url "--path /rule onto /rules/v1"    "$WANT" "$(endpoint_of "$HOST/rules/v1" rule.json --path /rule)"
-check_url "--path= normalises slashes"     "$WANT" "$(endpoint_of "$HOST" rule.json --path=rules/v1/rule/)"
+check_eq "bare platform host"             "$WANT" "$(endpoint_of "$HOST" rule.json)"
+check_eq "trailing slash tolerated"       "$WANT" "$(endpoint_of "$HOST/" rule.json)"
+check_eq "base already has /rules"        "$WANT" "$(endpoint_of "$HOST/rules" rule.json)"
+check_eq "base already has /rules/v1"     "$WANT" "$(endpoint_of "$HOST/rules/v1" rule.json)"
+check_eq "full endpoint URL, not doubled" "$WANT" "$(endpoint_of "$WANT" rule.json)"
+check_eq "--path '' posts base verbatim"  "$WANT" "$(endpoint_of "$WANT" rule.json --path '')"
+check_eq "--path /rule onto /rules/v1"    "$WANT" "$(endpoint_of "$HOST/rules/v1" rule.json --path /rule)"
+check_eq "--path= normalises slashes"     "$WANT" "$(endpoint_of "$HOST" rule.json --path=rules/v1/rule/)"
 # A base ending in "-rules" must not be mistaken for one ending in "/rules".
-check_url "overlap is segment-aligned"     "$HOST/qodo-rules$WANTPATH" \
+check_eq "overlap is segment-aligned"     "$HOST/qodo-rules$WANTPATH" \
                                            "$(endpoint_of "$HOST/qodo-rules" rule.json)"
 QODO_API_KEY=sk-x ./upload-rules.sh "$HOST" rule.json --path > /dev/null 2>&1
 check "--path with no value" 1 $?
@@ -215,6 +216,22 @@ for a in v["authFailures"]:
 raise SystemExit(0 if v["ok"] else 1)
 PY
 check "every POST matched the fixture" 0 $?
+
+banner "T22 rule.schema.json reaches the same verdict as the script"
+# The schema is checked against the script rather than against a second copy of
+# the rules: every file the cases above uploaded must validate, and every file
+# they rejected must fail. The fixtures are still in /tmp/qartest at this point.
+python3 tests/check-schema.py --schema rule.schema.json \
+  --valid rule.json "$FIXTURE" /tmp/qartest/snake.json /tmp/qartest/extra.json \
+          /tmp/qartest/dupe.json /tmp/qartest/boom.json \
+  --invalid /tmp/qartest/bad.json /tmp/qartest/long.json /tmp/qartest/broken.json \
+            /tmp/qartest/empty.json /tmp/qartest/obj.json
+SCHEMA_RC=$?
+if [ "$SCHEMA_RC" -eq 77 ]; then
+  echo "  SKIP: schema check needs the python3 jsonschema package"
+else
+  check "schema agrees with the script on every fixture" 0 "$SCHEMA_RC"
+fi
 
 banner "SERVER-SIDE ASSERTIONS"
 curl -s "$HOST/__log__" > /tmp/qartest/log.json
@@ -258,12 +275,12 @@ extra_rule = [e for e in log if e["body"]["name"] == "Extra field rule"]
 if not extra_rule: errs.append("extra-field rule never sent")
 elif set(extra_rule[0]["body"]) - allowed: errs.append("non-contract fields leaked to the server")
 
-scoped = [e for e in log if e["body"]["name"].startswith("Scope rule example")]
-if not scoped: errs.append("scoped example rule never sent")
-elif scoped[0]["body"].get("scopes") != ["/qodo-se/qar-rule-upload/"]: errs.append("example scopes wrong")
-
-no_scope = [e for e in log if e["body"]["name"] == "Parameterize SQL queries"]
-if no_scope and "scopes" in no_scope[0]["body"]: errs.append("empty scopes key sent when omitted")
+# rule.json omits scopes entirely (universal scope "/"), so the key must be
+# absent from those bodies rather than sent empty.
+from_rule_json = [e for e in log if e["body"]["name"].startswith("[NGC-CWE]")]
+if not from_rule_json: errs.append("rule.json rules never sent")
+elif any("scopes" in e["body"] for e in from_rule_json):
+    errs.append("scopes key sent for a rule that omits it")
 
 print(f"  {len(log)} requests recorded")
 if errs:

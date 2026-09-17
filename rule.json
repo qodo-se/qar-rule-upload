@@ -1,51 +1,74 @@
 [
   {
-    "name": "Never log secrets or tokens",
+    "name": "[NGC-CWE] Format String (CWE-134)",
     "category": "Security",
     "severity": "error",
-    "content": "Do not pass credentials, API keys, or bearer tokens to a logger. Redact the value or log a stable identifier instead.",
-    "goodExamples": "logger.info(\"authenticated\", extra={\"key_id\": key.id})",
-    "badExamples": "logger.info(f\"authenticated with {api_key}\")"
+    "content": "Format String (CWE-134). NEVER call sprintf and NEVER pass user-controlled input as the format string argument to a printf-family function. ALWAYS use a fixed format literal and pass user data as a typed argument. Raise nothing unless the offending call is visible in the diff. (CWE-134 | DISA ASD STIG V-222612 APSC-DV-002590 CAT I | CERT C FIO30-C Exact)",
+    "goodExamples": "void write_frame_label_checked(const char *operator_note) {\n    if (operator_note == nullptr) return;\n    printf(\"%s\\n\", operator_note);\n}",
+    "badExamples": "void write_frame_label(const char *operator_note) {\n    printf(operator_note);\n    printf(\"\\n\");\n}"
   },
   {
-    "name": "Use the centralized logger instead of print",
-    "category": "Observability",
-    "severity": "warning",
-    "content": "Application code must emit diagnostics through the shared logger so output is structured and routed correctly. Reserve print() for CLI user-facing output.",
-    "goodExamples": "logger.info(\"worker started\", extra={\"worker_id\": worker.id})",
-    "badExamples": "print(\"worker started\", worker.id)"
-  },
-  {
-    "name": "Parameterize SQL queries",
+    "name": "[NGC-CWE] Stack Buffer Overflow (CWE-121)",
     "category": "Security",
     "severity": "error",
-    "content": "Build SQL with bound parameters rather than string interpolation so user input cannot alter the query.",
-    "goodExamples": "cursor.execute(\"SELECT * FROM users WHERE id = %s\", (user_id,))",
-    "badExamples": "cursor.execute(f\"SELECT * FROM users WHERE id = {user_id}\")"
+    "content": "Stack Buffer Overflow (CWE-121). NEVER call gets or strcpy or strcat or an unbounded scanf %s conversion. ALWAYS use the length-bounded equivalent with an explicit destination size. Raise the bounds concern ONLY when the destination declaration and the copy are both visible in the diff and no length check appears between them. (CWE-121 | DISA ASD STIG V-222612 APSC-DV-002590 CAT I | CERT C STR31-C)",
+    "goodExamples": "void cache_downlink_ident_bounded(const char *ident) {\n    if (ident == nullptr) return;\n    char slot[32];\n    snprintf(slot, sizeof(slot), \"%s\", ident);\n    printf(\"ident=%s\\n\", slot);\n}\n\nvoid cache_downlink_ident_measured(const char *ident) {\n    if (ident == nullptr) return;\n    char slot[32];\n    size_t n = strnlen(ident, sizeof(slot) - 1);\n    memcpy(slot, ident, n);\n    slot[n] = '\\0';\n    printf(\"ident=%s\\n\", slot);\n}",
+    "badExamples": "void cache_downlink_ident(const char *ident) {\n    char slot[32];\n    strcpy(slot, ident);\n    printf(\"ident=%s\\n\", slot);\n}"
   },
   {
-    "name": "Set a timeout on outbound HTTP calls",
-    "category": "Reliability",
+    "name": "[NGC-CWE] Double Free (CWE-415)",
+    "category": "Security",
     "severity": "error",
-    "content": "Every outbound HTTP request must set an explicit timeout so a slow upstream cannot exhaust the caller's connection pool.",
-    "goodExamples": "resp = await client.get(url, timeout=10.0)",
-    "badExamples": "resp = await client.get(url)"
+    "content": "Double Free (CWE-415). NEVER release the same pointer twice along any path visible in the diff. ALWAYS set the pointer to NULL at the free site when a later release of it appears in the same function. Raise nothing when only one release is visible. (CWE-415 | DISA ASD STIG V-222648 APSC-DV-003170 CAT II | CERT C MEM31-C)",
+    "goodExamples": "void release_frame_once(Frame *f) {\n    if (f == nullptr) return;\n    free(f->payload);\n    f->payload = nullptr;\n    f->len = 0;\n}",
+    "badExamples": "void release_frame(Frame *f, bool retry) {\n    if (f == nullptr) return;\n    free(f->payload);\n    if (retry) {\n        free(f->payload);\n    }\n    f->len = 0;\n}"
   },
   {
-    "name": "Assert on behavior, not on call counts",
-    "category": "Testability",
-    "severity": "recommendation",
-    "content": "Prefer asserting the observable result of a unit over asserting that a collaborator was called. Mock-call assertions couple tests to the implementation.",
-    "goodExamples": "assert repo.get(user.id).status == \"active\"",
-    "badExamples": "repo.save.assert_called_once()"
+    "name": "[NGC-CWE] Use After Free (CWE-416)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Use After Free (CWE-416). NEVER read from or write through a pointer after its memory has been released. ALWAYS null the pointer at the free site when the same function reads it afterwards. Raise nothing on a raw pointer that is never read after release. (CWE-416 | DISA ASD STIG V-222648 APSC-DV-003170 CAT II | CERT C MEM30-C Exact)",
+    "goodExamples": "std::string take_session_copy(const std::string &key) {\n    auto it = g_sessions.find(key);\n    if (it == g_sessions.end()) return \"\";\n    std::string out(it->second);\n    free(it->second);\n    g_sessions.erase(it);\n    return out;\n}",
+    "badExamples": "const char *take_session(const std::string &key) {\n    auto it = g_sessions.find(key);\n    if (it == g_sessions.end()) return nullptr;\n    char *value = it->second;\n    free(value);\n    g_sessions.erase(it);\n    return value;\n}"
   },
   {
-    "name": "Scope rule example - repo-local convention",
-    "category": "Architecture",
-    "severity": "warning",
-    "content": "This rule demonstrates the optional scopes field. It only applies inside the listed repository paths rather than the whole workspace.",
-    "goodExamples": "",
-    "badExamples": "",
-    "scopes": ["/qodo-se/qar-rule-upload/"]
+    "name": "[NGC-CWE] OS Command Injection (CWE-78)",
+    "category": "Security",
+    "severity": "error",
+    "content": "OS Command Injection (CWE-78). NEVER pass a string built from untrusted input to system or popen or any exec variant that invokes a shell. ALWAYS pass arguments as a separate array to an API that spawns no shell. Raise nothing when the sink already takes an argument array. (CWE-78 | DISA ASD STIG V-222604 APSC-DV-002510 CAT I | OWASP A03:2021)",
+    "goodExamples": "int check_link_filtered(const char *ground_station) {\n    if (ground_station == nullptr) return -1;\n    for (const char *p = ground_station; *p; p++) {\n        bool ok = (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||\n                  (*p >= '0' && *p <= '9') || *p == '.' || *p == '-';\n        if (!ok) return -1;\n    }\n    pid_t pid = fork();\n    if (pid == 0) {\n        execl(\"/bin/ping\", \"ping\", \"-c\", \"1\", ground_station, (char *)nullptr);\n        _exit(127);\n    }\n    if (pid < 0) return -1;\n    int status = 0;\n    waitpid(pid, &status, 0);\n    return status;\n}",
+    "badExamples": "int check_link(const char *ground_station) {\n    char cmd[512];\n    snprintf(cmd, sizeof(cmd), \"ping -c 1 %s\", ground_station);\n    return system(cmd);\n}"
+  },
+  {
+    "name": "[NGC-CWE] Path Traversal (CWE-22)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Path Traversal (CWE-22). NEVER open a file at a path built from untrusted input without canonicalizing it first. ALWAYS ADD a realpath call and a base-prefix check before the open. NEVER advise replacing an exact-match allowlist with a prefix check, because that is strictly weaker. (CWE-22 | DISA ASD STIG V-222605 APSC-DV-002520 CAT II | OWASP A01:2021)",
+    "goodExamples": "std::string read_named_product(const char *product_name) {\n    static const char *allowed[] = {\"ephemeris.log\", \"attitude.log\", \"power.log\"};\n    bool permitted = false;\n    for (const char *candidate : allowed) {\n        if (product_name && strcmp(product_name, candidate) == 0) {\n            permitted = true;\n            break;\n        }\n    }\n    if (!permitted) return \"\";\n    char path[512];\n    snprintf(path, sizeof(path), \"%s/%s\", PRODUCT_ROOT, product_name);\n    FILE *f = fopen(path, \"r\");\n    if (!f) return \"\";\n    char line[1024];\n    std::string out;\n    while (fgets(line, sizeof(line), f)) out += line;\n    fclose(f);\n    return out;\n}",
+    "badExamples": "std::string load_artefact(const std::string &requested_name) {\n    std::string path = std::string(ARTEFACT_ROOT) + requested_name;\n    FILE *f = fopen(path.c_str(), \"rb\");\n    if (!f) return \"\";\n    char buf[4096];\n    size_t n = fread(buf, 1, sizeof(buf), f);\n    fclose(f);\n    return std::string(buf, n);\n}"
+  },
+  {
+    "name": "[NGC-CWE] Allocation Size Overflow (CWE-190)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Allocation Size Overflow (CWE-190). NEVER derive an allocation size from arithmetic on an externally supplied value unless the result is checked for wraparound in the type the arithmetic is performed in. ALWAYS bound the count against the maximum of that operand type divided by the element size. A SIZE_MAX bound on narrower operands is inert and MUST NOT be offered as the fix. (CWE-190 | CWE-131 secondary | DISA ASD STIG V-222612 APSC-DV-002590 CAT I | CERT C MEM07-C)",
+    "goodExamples": "void *reserve_frame_pool_bounded(size_t count, size_t width) {\n    if (width != 0 && count > SIZE_MAX / width) return nullptr;\n    if (count == 0 || width == 0) return nullptr;\n    return calloc(count, width);\n}",
+    "badExamples": "void *reserve_frame_pool(unsigned int count, unsigned int width) {\n    unsigned int total = count * width;\n    return malloc(total);\n}"
+  },
+  {
+    "name": "[NGC-CWE] Unchecked Allocation Result (CWE-476)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Unchecked Allocation Result (CWE-476). NEVER dereference a pointer returned by malloc or calloc or realloc in the same function that allocated it unless a null test precedes the dereference. Raise nothing when the pointer is returned to a caller rather than dereferenced. (CWE-476 | DISA ASD STIG V-222648 APSC-DV-003170 CAT II | CERT C EXP34-C Exact)",
+    "goodExamples": "char *parse_frame_header_checked(const char *raw, size_t len) {\n    if (raw == nullptr) return nullptr;\n    char *copy = (char *)malloc(len + 1);\n    if (copy == nullptr) return nullptr;\n    memcpy(copy, raw, len);\n    copy[len] = '\\0';\n    return copy;\n}\n\nvoid *reserve_scratch(size_t bytes) {\n    return malloc(bytes);\n}",
+    "badExamples": "char *parse_frame_header(const char *raw, size_t len) {\n    char *copy = (char *)malloc(len + 1);\n    memcpy(copy, raw, len);\n    copy[len] = '\\0';\n    return copy;\n}"
+  },
+  {
+    "name": "[NGC-CWE] Unvalidated Numeric Conversion (CWE-1287)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Unvalidated Numeric Conversion (CWE-1287). NEVER accept an externally supplied numeric string through atoi or atol, because neither signals an error on malformed input. ALWAYS parse with strtol then check endptr and reject any value outside the documented range. Raise nothing on a cast whose operand is already range-checked. (CWE-1287 | CWE-1284 secondary | DISA ASD STIG V-222606 APSC-DV-002530 CAT II)",
+    "goodExamples": "int select_downlink_port_checked(const char *env_value) {\n    if (env_value == nullptr) return -1;\n    char *end = nullptr;\n    long parsed = strtol(env_value, &end, 10);\n    if (end == env_value || *end != '\\0') return -1;\n    if (parsed < 1 || parsed > 65535) return -1;\n    return static_cast<int>(parsed);\n}",
+    "badExamples": "int select_downlink_port(const char *env_value) {\n    int port = atoi(env_value);\n    return port;\n}"
   }
 ]

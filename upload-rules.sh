@@ -18,8 +18,10 @@
 set -euo pipefail
 
 readonly DEFAULT_RULE_PATH="/rules/v1/rule"
+# Both bounds come from the platform's RuleCreateRequest: name is
+# minLength 1 / maxLength 128, scopes is maxItems 100.
 readonly NAME_MAX_LENGTH=128
-readonly MAX_SCOPES=25
+readonly MAX_SCOPES=100
 readonly DEFAULT_TOKEN_VAR="QODO_API_KEY"
 readonly AUTH_KEY_FILE="${HOME}/.qodo/auth.key"
 
@@ -103,8 +105,12 @@ ${C_BOLD}EXAMPLES${C_OFF}
   # the full endpoint URL - nothing is appended twice
   $PROG https://qodo-platform.qodo.ai$DEFAULT_RULE_PATH rule.json
 
-  # validate without sending
+  # validate the file without sending anything
   $PROG https://qodo-platform.qodo.ai rule.json --dry-run
+
+${C_BOLD}SEE ALSO${C_OFF}
+  ./endpoint-validator.sh - probe a base URL to find where the API answers,
+                            before pointing this script at it.
 
 ${C_BOLD}EXIT CODES${C_OFF}
   0  all rules created (or already existed)
@@ -484,38 +490,9 @@ CURL_CFG="$TMPDIR_RUN/curl.cfg"
   if [ "$INSECURE" -eq 1 ]; then printf 'insecure\n'; fi
 } >> "$CURL_CFG"
 
-# ----------------------------------------------------------------- banner ---
-
-info "${C_BOLD}endpoint${C_OFF}  $ENDPOINT"
-info "${C_BOLD}rules${C_OFF}     $TOTAL from $SOURCE_LABEL"
-if [ "$DRY_RUN" -eq 1 ]; then
-  info "${C_BOLD}mode${C_OFF}      ${C_YELLOW}dry run - no requests will be sent${C_OFF}"
-else
-  info "${C_BOLD}token${C_OFF}     $(redact "$TOKEN") ${C_DIM}(from $TOKEN_ORIGIN)${C_OFF}"
-  if [ -n "$WORKSPACE_ID" ]; then
-    info "${C_BOLD}workspace${C_OFF} $WORKSPACE_ID"
-  else
-    info "${C_BOLD}workspace${C_OFF} ${C_DIM}header not sent - resolved from the token${C_OFF}"
-  fi
-fi
-info ""
-
-# ------------------------------------------------------------------ upload ---
-
 HEADERS="$TMPDIR_RUN/headers.txt"
 BODY="$TMPDIR_RUN/body.json"
 CURL_ERR="$TMPDIR_RUN/curlerr.txt"
-
-post_rule() {
-  # post_rule <payload-file>; echoes the HTTP status, 000 when unreachable.
-  curl -K "$CURL_CFG" \
-    -X POST "$ENDPOINT" \
-    --data-binary "@$1" \
-    -D "$HEADERS" \
-    -o "$BODY" \
-    -w '%{http_code}' \
-    < /dev/null 2>"$CURL_ERR" || true
-}
 
 server_detail() {
   # FastAPI puts the reason in .detail; fall back to a trimmed raw body.
@@ -535,6 +512,35 @@ server_detail() {
 
 transport_detail() {
   tr -d '\r' < "$CURL_ERR" | tr '\n' ' ' | sed 's/  */ /g;s/^ *//;s/ *$//'
+}
+
+# ----------------------------------------------------------------- banner ---
+
+info "${C_BOLD}endpoint${C_OFF}  $ENDPOINT"
+info "${C_BOLD}rules${C_OFF}     $TOTAL from $SOURCE_LABEL"
+if [ "$DRY_RUN" -eq 1 ]; then
+  info "${C_BOLD}mode${C_OFF}      ${C_YELLOW}dry run - no requests will be sent${C_OFF}"
+else
+  info "${C_BOLD}token${C_OFF}     $(redact "$TOKEN") ${C_DIM}(from $TOKEN_ORIGIN)${C_OFF}"
+  if [ -n "$WORKSPACE_ID" ]; then
+    info "${C_BOLD}workspace${C_OFF} $WORKSPACE_ID"
+  else
+    info "${C_BOLD}workspace${C_OFF} ${C_DIM}header not sent - resolved from the token${C_OFF}"
+  fi
+fi
+info ""
+
+# ------------------------------------------------------------------ upload ---
+
+post_rule() {
+  # post_rule <payload-file>; echoes the HTTP status, 000 when unreachable.
+  curl -K "$CURL_CFG" \
+    -X POST "$ENDPOINT" \
+    --data-binary "@$1" \
+    -D "$HEADERS" \
+    -o "$BODY" \
+    -w '%{http_code}' \
+    < /dev/null 2>"$CURL_ERR" || true
 }
 
 retry_delay() {

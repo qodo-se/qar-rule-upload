@@ -2,10 +2,14 @@
 
 Bulk-create Qodo rules from a JSON file.
 
-[`upload-rules.sh`](upload-rules.sh) reads a JSON **array**, validates every entry against the
-platform's write contract, and POSTs each object to `{base-url}/rules/v1/rule` — one request per
-rule, because the platform has no bulk-create endpoint (`/rules/v1/bulk` only operates on rule IDs
-that already exist).
+| Script | What it does |
+| --- | --- |
+| [`upload-rules.sh`](upload-rules.sh) | Uploads a JSON array of rules to `{base-url}/rules/v1/rule`. |
+| [`endpoint-validator.sh`](endpoint-validator.sh) | Probes a base URL to find where the API answers, before you point the uploader at it. |
+
+`upload-rules.sh` reads a JSON **array**, validates every entry against the platform's write
+contract, and POSTs each object — one request per rule, because the platform has no bulk-create
+endpoint (`/rules/v1/bulk` only operates on rule IDs that already exist).
 
 Validation runs over the whole file before the first request, so a typo in rule 40 fails the run
 before rule 1 is uploaded.
@@ -93,6 +97,85 @@ write to and the request comes back `403`.
 
 Pass `-` as the file to read the array from stdin.
 
+## Finding the endpoint: `endpoint-validator.sh`
+
+If you are not sure a base URL is right, or a token works, probe it first:
+
+```
+./endpoint-validator.sh <base-url> [token-source] [options]
+```
+
+It takes a base URL and a token, with the **same token rules as `upload-rules.sh`** (named variable,
+literal, or `$QODO_API_KEY`), builds a matrix of plausible URLs, GETs each one, and prints the
+complete URL and the result for every probe.
+
+```bash
+export QODO_API_KEY=sk-...
+./endpoint-validator.sh https://qodo-platform.qodo.ai
+```
+
+```
+base       https://qodo-platform.qodo.ai
+origin     https://qodo-platform.qodo.ai
+token      sk-liv...1234 (from $QODO_API_KEY)
+workspace  header not sent
+probing    11 URL(s) with GET, stopping at the first 200
+
+  200   0.184s  https://qodo-platform.qodo.ai/platform/v2/users
+              user@example.com / 00000000-0000-0000-0000-0000000000ff
+
+found      https://qodo-platform.qodo.ai/platform/v2/users
+resolved   user@example.com / 00000000-0000-0000-0000-0000000000ff
+upload with ./upload-rules.sh https://qodo-platform.qodo.ai rule.json
+```
+
+### Why the users endpoint
+
+qodo-platform publishes **no unauthenticated health or ping route** — nothing like `/health`,
+`/healthz` or `/ping` exists on it. (The `/v1/health/live` and `/v1/health/ready` endpoints in
+`qodo-agent-runtime` belong to QAR, a different host, and 404 on the platform.)
+
+So the validator uses the cheapest authenticated GET there is, `/platform/v2/users` — the principal
+resolution call. No query parameters, bearer only, and it returns the identity your token maps to,
+which is more informative than a health check would be: it proves the host is reachable, the token
+is valid, and tells you *who* the token is.
+
+### What it probes
+
+Bases are the URL you gave with each trailing path segment peeled off in turn, so
+`https://host/rules/v1/rule` also tries `https://host/rules/v1`, `https://host/rules` and
+`https://host`. Each base is combined with each prefix and each route; duplicates are dropped.
+
+- **Routes:** `/platform/v2/users`, `/platform/v1/users`, `/v2/users`, `/v1/users`, `/users`
+- **Prefixes:** none, `/api`, `/platform`
+
+By default it stops at the first `200`. Pass `--all` to probe everything, which is what you want
+when you are mapping an unfamiliar deployment.
+
+### Options
+
+| Option | Effect |
+| --- | --- |
+| `-w, --workspace-id ID` | Also send `qodo-workspace-id`. Defaults to `$QODO_WORKSPACE_ID`. |
+| `--route PATH` | Probe `PATH` instead of the built-in routes. Repeatable; replaces the defaults. |
+| `--prefix PATH` | Extra prefix between host and route. Repeatable. `--prefix ''` for the bare host. |
+| `--all` | Keep probing after the first success. |
+| `-1, --first` | Stop at the first success (default). |
+| `--timeout SECONDS` | Per-request timeout (default `10`). |
+| `--insecure` | Skip TLS verification. |
+| `--json` | Emit one JSON object per probe on stdout. |
+| `-v, --verbose` | Print the full response body of every probe. |
+
+Exit codes: `0` when something answered `200`, `1` for a usage error, `2` when nothing did (the
+table still shows what each URL said, so a wall of `401`s tells you the token is the problem and a
+wall of `404`s tells you the base URL is).
+
+`--route` also makes it a general-purpose prober — point it at any endpoint you want to check:
+
+```bash
+./endpoint-validator.sh https://host --route /rules/v1/metadata --all
+```
+
 ## Input format
 
 A JSON array. Each object becomes one POST body.
@@ -119,11 +202,13 @@ A JSON array. Each object becomes one POST body.
 ]
 ```
 
-See [`rule.json`](rule.json) for a longer set.
+See [`rule.json`](rule.json) for a longer set, and [`rule.schema.json`](rule.schema.json) for a JSON
+Schema of the whole file.
 
 ### Fields
 
-These six are the mandatory ones — the script sends nothing else unless you add `scopes`.
+These six are the mandatory ones — the script sends nothing else unless you add `scopes`. They are
+the required properties of the platform's `RuleCreateRequest`, and the bounds below come from it.
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
@@ -133,7 +218,12 @@ These six are the mandatory ones — the script sends nothing else unless you ad
 | `content` | string | yes | Non-empty. What the rule checks or enforces, 1–3 sentences, imperative voice. |
 | `goodExamples` | string | yes | Code that **follows** the rule. May be `""`, but the key must be present. |
 | `badExamples` | string | yes | Code that **violates** the rule. May be `""`, but the key must be present. |
-| `scopes` | string[] | no | Repository paths the rule applies to, max **25**. Omit for the universal scope `/`. |
+| `scopes` | string[] | no | Repository paths the rule applies to, max **100**. Omit for the universal scope `/`. |
+
+The platform also accepts `source`, `sourceType`, `sourceUri`, `suggestionType` and the structured
+`scopeElements` on a create. The script does not send them: a user key already records the creator
+as the rule's source, and `scopeElements` is the newer form of the same information `scopes` carries.
+Put any of them in your file and they are dropped with a note, like any other non-contract field.
 
 ### `severity`
 
@@ -160,7 +250,7 @@ Title Case, as written. For the categories a specific workspace actually uses, c
 
 ### `scopes`
 
-Optional. Paths look like `/owner/repo/` or `/owner/repo/src/module/`, max 25 entries.
+Optional. Paths look like `/owner/repo/` or `/owner/repo/src/module/`, max 100 entries.
 
 - Omit the key entirely for the universal scope `/`.
 - `[]` is also accepted and the platform normalises it to `/`.
@@ -173,23 +263,41 @@ These exist so a hand-written file doesn't get bounced for cosmetic reasons:
 - `good_examples` / `bad_examples` are accepted as aliases for `goodExamples` / `badExamples`.
 - `severity` is lowercased and trimmed.
 - `scopes` entries are trimmed, and a bare string becomes a one-element list.
-- Fields outside the contract (`state`, `ruleId`, `createdAt`, …) are dropped with a note, so you can
-  round-trip a `GET` response back into an upload without hand-editing it.
+- Fields outside the contract (`state`, `ruleId`, `createdAt`, `sourceType`, …) are dropped with a
+  note, so you can round-trip a `GET` response back into an upload without hand-editing it.
+
+### JSON Schema
+
+[`rule.schema.json`](rule.schema.json) (draft 2020-12) describes the file **as written**, so it
+allows the snake_case aliases and the mixed-case severity the script normalises for you — not just
+the wire shape. The two are kept in step: a file that validates against the schema passes the
+script's own validation, and a file the schema rejects is one the script refuses to upload.
+
+Point an editor at it for completion and inline errors, or run it in CI:
+
+```bash
+# any JSON Schema validator will do
+check-jsonschema --schemafile rule.schema.json rule.json
+npx ajv-cli validate -s rule.schema.json -d rule.json --spec=draft2020
+```
+
+The script itself does not read the schema — it validates with `jq` so it needs nothing beyond
+`jq` and `curl`. The schema is for your editor, your CI, and for reading the contract in one place.
 
 ## Output
 
 ```
 endpoint  https://qodo-platform.qodo.ai/rules/v1/rule
-rules     6 from rule.json
+rules     9 from rule.json
 token     sk-liv...c123 (from $QODO_API_KEY)
 workspace header not sent - resolved from the token
 
-[1/6] Never log secrets or tokens - created (ruleId 41)
-[2/6] Use the centralized logger instead of print - created (ruleId 42)
-[3/6] Parameterize SQL queries - already exists, skipped
+[1/9] [NGC-CWE] Format String (CWE-134) - created (ruleId 41)
+[2/9] [NGC-CWE] Stack Buffer Overflow (CWE-121) - created (ruleId 42)
+[3/9] [NGC-CWE] Double Free (CWE-415) - already exists, skipped
 ...
 
-done: created 5, already existed 1 (of 6)
+done: created 8, already existed 1 (of 9)
 ```
 
 ### Exit codes
@@ -232,7 +340,8 @@ a bearer token. `GET /__verify__` then reports the run's verdict, which fails un
 fixture arrived.
 
 ```bash
-./tests/run-tests.sh
+./tests/run-tests.sh            # upload-rules.sh
+./tests/run-validator-tests.sh  # endpoint-validator.sh
 ```
 
 Requires `python3` for the mock; no other dependencies.
