@@ -206,6 +206,11 @@ Two ready-made sets ship with the repo: [`rule.json`](rule.json), 9 memory-safet
 rules keyed to CWE, and [`jama.json`](jama.json), 35 MISRA C and MISRA C++ rules for safety-critical
 embedded code. Upload either the same way:
 
+> **Warning:** `jama.json` omits `scopes`, so every uploaded rule applies to every repository (the
+> universal `/` scope). Add repository or source-directory scopes to each rule before uploading
+> if the workspace contains unrelated projects. The unscoped set is suitable only for workspaces
+> dedicated to applicable C and C++ safety-critical code.
+
 ```bash
 export QODO_API_KEY=sk-...
 ./upload-rules.sh https://qodo-platform.qodo.ai jama.json
