@@ -202,8 +202,16 @@ A JSON array. Each object becomes one POST body.
 ]
 ```
 
-See [`rule.json`](rule.json) for a longer set, and [`rule.schema.json`](rule.schema.json) for a JSON
-Schema of the whole file.
+Two ready-made sets ship with the repo: [`rule.json`](rule.json), 9 memory-safety and injection
+rules keyed to CWE, and [`jama.json`](jama.json), 35 MISRA C and MISRA C++ rules for safety-critical
+embedded code. Upload either the same way:
+
+```bash
+export QODO_API_KEY=sk-...
+./upload-rules.sh https://qodo-platform.qodo.ai jama.json
+```
+
+See [`rule.schema.json`](rule.schema.json) for a JSON Schema of the whole file.
 
 ### Fields
 
