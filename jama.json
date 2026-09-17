@@ -1,0 +1,317 @@
+[
+  {
+    "name": "[MISRA] Reliance on Undefined or Unspecified Behavior (Rule 1.2)",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Reliance on Undefined or Unspecified Behavior (MISRA C Rule 1.2). NEVER write code whose result depends on undefined, unspecified, indeterminate, or implementation-defined behavior. C does not trap these the way a managed runtime would: the program keeps running and may corrupt state that surfaces nowhere near the original defect. ALWAYS replace the construct with one the standard fully defines. Raise nothing unless the offending construct is visible in the diff. (MISRA C 2025 Rule 1.2 Required | MISRA C++ 2023 | Jama Software MISRA C guide)",
+    "goodExamples": "uint32_t next_index(uint32_t i)\n{\n    i = i + 1U;\n    return i;\n}",
+    "badExamples": "uint32_t next_index(uint32_t i)\n{\n    /* Unsequenced modification and use of i - undefined behavior. */\n    return i++ + i;\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Signed Integer Overflow (Rule 1.2)",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Signed Integer Overflow (MISRA C Rule 1.2). NEVER let a signed arithmetic expression overflow: the behavior is undefined, so it can resolve one way under the development compiler and another under the production compiler, passing every bench test and still failing in the field. ALWAYS range-check the operands before the operation, or perform it in an unsigned type of known width. Raise nothing unless the unchecked signed arithmetic is visible in the diff. (MISRA C 2025 Rule 1.2 Required | CWE-190 | Jama Software MISRA C guide)",
+    "goodExamples": "bool accumulate_torque(int32_t acc, int32_t delta, int32_t *out)\n{\n    if ((delta > 0) && (acc > (INT32_MAX - delta))) { return false; }\n    if ((delta < 0) && (acc < (INT32_MIN - delta))) { return false; }\n    *out = acc + delta;\n    return true;\n}",
+    "badExamples": "int32_t accumulate_torque(int32_t acc, int32_t delta)\n{\n    /* Overflows silently; undefined behavior, not a wrap. */\n    return acc + delta;\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Division or Remainder by Zero (Rule 1.2)",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Division or Remainder by Zero (MISRA C Rule 1.2). NEVER apply / or % without establishing that the right-hand operand is non-zero on every path; division by zero is undefined behavior. ALWAYS guard the divisor, or derive it from a value the type system already constrains to be non-zero. Raise nothing unless the unguarded division is visible in the diff. (MISRA C 2025 Rule 1.2 Required | CWE-369 | Jama Software MISRA C guide)",
+    "goodExamples": "bool mean_sample(const uint32_t *sum, uint32_t count, uint32_t *out)\n{\n    if (count == 0U) { return false; }\n    *out = *sum / count;\n    return true;\n}",
+    "badExamples": "uint32_t mean_sample(const uint32_t *sum, uint32_t count)\n{\n    /* count can be zero when the buffer was never filled. */\n    return *sum / count;\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Out-of-Bounds Array Access (Rule 1.2)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Out-of-Bounds Array Access (MISRA C Rule 1.2). NEVER index an array or step a pointer with a value that has not been shown to lie within the object; out-of-bounds access is undefined behavior and the usual mechanism behind memory corruption. ALWAYS bounds-check the index against the array's own extent before the access. Raise nothing unless the unvalidated index is visible in the diff. (MISRA C 2025 Rule 1.2 Required | CWE-125 | CWE-787 | Jama Software MISRA C guide)",
+    "goodExamples": "bool read_channel(const uint16_t *samples, size_t len, size_t idx, uint16_t *out)\n{\n    if (idx >= len) { return false; }\n    *out = samples[idx];\n    return true;\n}",
+    "badExamples": "uint16_t read_channel(const uint16_t *samples, size_t idx)\n{\n    /* Caller-supplied idx is never compared against the array extent. */\n    return samples[idx];\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Use Fixed-Width Types That State Size and Signedness",
+    "category": "Correctness",
+    "severity": "recommendation",
+    "content": "Weak Typing (MISRA C essential type model). Dir 4.6 is Advisory: the stdint.h typedefs that state width and signedness should be used in place of the basic numerical types where practical, because the size of plain char, short, int, and long is implementation-defined and moves between toolchains. ALWAYS use uint32_t, int8_t and their siblings for data whose width or signedness matters, or record why the basic type is the right one here. Raise nothing unless the implementation-defined declaration is visible in the diff. (MISRA C 2025 Dir 4.6 Advisory | Jama Software MISRA C guide)",
+    "goodExamples": "#include <stdint.h>\n\ntypedef struct {\n    uint32_t odometer_m;\n    int8_t   cabin_temp_c;\n} telemetry_t;",
+    "badExamples": "typedef struct {\n    unsigned long odometer_m; /* 32 or 64 bits depending on the target */\n    char          cabin_temp_c; /* signedness is implementation-defined */\n} telemetry_t;",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Implicit Conversion Changing Signedness or Width",
+    "category": "Correctness",
+    "severity": "error",
+    "content": "Implicit Conversion (MISRA C essential type model). NEVER let an operand convert implicitly to a different essential type category or a narrower type; the silent change of signedness or width is a standing source of compiler-dependent failures. ALWAYS make the conversion explicit after checking the value is representable in the destination type. Raise nothing unless the implicit conversion is visible in the diff. (MISRA C 2025 Rule 10.3 Required | Rule 10.4 Required | CWE-197 | Jama Software MISRA C guide)",
+    "goodExamples": "bool to_duty_cycle(int32_t raw, uint8_t *out)\n{\n    if ((raw < 0) || (raw > (int32_t)UINT8_MAX)) { return false; }\n    *out = (uint8_t)raw;\n    return true;\n}",
+    "badExamples": "uint8_t to_duty_cycle(int32_t raw)\n{\n    /* Negative and >255 values wrap silently. */\n    return raw;\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Automatic Variable Read Before It Is Assigned",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Uninitialized Variable (MISRA C Rule 9.1). NEVER read an automatic variable before it has been assigned on every path that reaches the read: stack variables in C start as garbage, so the value is indeterminate rather than zero. ALWAYS assign at the point of declaration, or prove every branch writes before the first read. Raise nothing unless the unassigned read is visible in the diff. (MISRA C 2025 Rule 9.1 Mandatory | CWE-457 | Jama Software MISRA C guide)",
+    "goodExamples": "uint16_t clamp_setpoint(bool have_override, uint16_t override_v)\n{\n    uint16_t setpoint = DEFAULT_SETPOINT;\n    if (have_override) { setpoint = override_v; }\n    return setpoint;\n}",
+    "badExamples": "uint16_t clamp_setpoint(bool have_override, uint16_t override_v)\n{\n    uint16_t setpoint;\n    if (have_override) { setpoint = override_v; }\n    return setpoint; /* indeterminate when have_override is false */\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Dynamic Memory Allocation in Critical Systems (Rule 21.3)",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Dynamic Memory (MISRA C Rule 21.3). NEVER call malloc, calloc, realloc, or free in critical systems code: heap use introduces allocation failure, fragmentation, and nondeterministic timing that a safety argument cannot bound. ALWAYS size storage statically, or take it from a fixed pool allocated once during initialization. Raise nothing unless the allocation call is visible in the diff. (MISRA C 2025 Rule 21.3 Required | CWE-789 | Jama Software MISRA C guide)",
+    "goodExamples": "static uint8_t frame_pool[MAX_FRAMES][FRAME_BYTES];\n\nuint8_t *acquire_frame(size_t slot)\n{\n    return (slot < MAX_FRAMES) ? frame_pool[slot] : NULL;\n}",
+    "badExamples": "uint8_t *acquire_frame(size_t bytes)\n{\n    /* Heap allocation on a path with no bounded failure handling. */\n    return malloc(bytes);\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Unsafe Pointer Conversion (Rule 11.x)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Pointer Conversion (MISRA C Rule 11 series). NEVER cast between a pointer and an integer, between incompatible object pointer types, or away from const or volatile; these conversions are the mechanism behind alignment faults and memory corruption. ALWAYS carry data through a declared type, or copy through unsigned char when a byte view is genuinely required. Raise nothing unless the conversion is visible in the diff. (MISRA C 2025 Rule 11.1-11.8 Required | CWE-704 | Jama Software MISRA C guide)",
+    "goodExamples": "void load_header(const uint8_t *bytes, frame_header_t *out)\n{\n    (void)memcpy(out, bytes, sizeof(*out));\n}",
+    "badExamples": "frame_header_t *load_header(uint8_t *bytes)\n{\n    /* Alignment and aliasing both unchecked. */\n    return (frame_header_t *)bytes;\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] MISRA C++ 2023 Targets C++17",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "Language Version (MISRA C++ 2023). MISRA C++ 2023 defines the safe subset for C++17 and merges the former AUTOSAR C++14 guidelines into a single reference. NEVER set a project claiming that edition to an earlier standard without a formal deviation against the language-version requirement. ALWAYS state the standard explicitly in the build so the claim and the toolchain agree. Raise nothing unless the language-version setting is visible in the diff. (MISRA C++ 2023 | AUTOSAR C++14 merger | Jama Software MISRA C guide)",
+    "goodExamples": "set(CMAKE_CXX_STANDARD 17)\nset(CMAKE_CXX_STANDARD_REQUIRED ON)\nset(CMAKE_CXX_EXTENSIONS OFF)",
+    "badExamples": "# Claims MISRA C++ 2023 but builds as C++14 with no recorded deviation.\nset(CMAKE_CXX_STANDARD 14)",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Range-Based For Loop Over a Temporary",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Range-Based For Over a Temporary (MISRA C++ 2023). NEVER write a range-based for loop whose range expression is a temporary that the loop does not extend the lifetime of; before C++23 the temporary is destroyed before the first iteration and the loop reads freed memory. ALWAYS bind the range to a named local first, then iterate it. Raise nothing unless the loop over a temporary is visible in the diff. (MISRA C++ 2023 | CWE-416 | Jama Software MISRA C guide)",
+    "goodExamples": "const Reading &latest = sensor.latest();\nfor (const Sample &s : latest.samples()) {\n    accumulate(s);\n}",
+    "badExamples": "// sensor.latest() dies before the first iteration.\nfor (const Sample &s : sensor.latest().samples()) {\n    accumulate(s);\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Deprecated C++17 Feature",
+    "category": "Quality",
+    "severity": "warning",
+    "content": "Deprecated Features (MISRA C++ 2023). NEVER introduce a construct C++17 marks deprecated; it is scheduled for removal and leaves the project unable to move to a later standard without rework. ALWAYS use the replacement the standard names. Raise nothing unless the deprecated construct is visible in the diff. (MISRA C++ 2023 | Jama Software MISRA C guide)",
+    "goodExamples": "std::unique_ptr<Decoder> make_decoder()\n{\n    return std::make_unique<Decoder>();\n}",
+    "badExamples": "std::auto_ptr<Decoder> make_decoder()\n{\n    return std::auto_ptr<Decoder>(new Decoder());\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Implicit Conversion to bool",
+    "category": "Correctness",
+    "severity": "warning",
+    "content": "bool Conversions (MISRA C++ 2023). NEVER rely on an implicit conversion to bool in a condition; a pointer, integer, or user-defined type tested directly hides which property is actually being checked. ALWAYS write the comparison out. Raise nothing unless the implicit test is visible in the diff. (MISRA C++ 2023 | Jama Software MISRA C guide)",
+    "goodExamples": "if (handle != nullptr) { use(handle); }\nif (retries > 0) { retry(); }",
+    "badExamples": "if (handle) { use(handle); }\nif (retries) { retry(); }",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] No Deviation from a Mandatory Guideline",
+    "category": "Compliance",
+    "severity": "error",
+    "content": "Mandatory Category (MISRA Compliance 2020). Mandatory guidelines allow no deviation under any circumstances. NEVER add a suppression, pragma, or checker exclusion that silences a guideline classified Mandatory, and never re-categorize one downwards. ALWAYS change the code instead. Raise nothing unless the suppression of a Mandatory guideline is visible in the diff. (MISRA Compliance 2020 | Jama Software MISRA C guide)",
+    "goodExamples": "/* Rule 9.1 is Mandatory: the code is changed, not suppressed. */\nuint16_t setpoint = DEFAULT_SETPOINT;",
+    "badExamples": "/* PRQA S 9001 - Mandatory guideline suppressed; no deviation is permitted. */\nuint16_t setpoint;",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Deviation Record for a Required Guideline",
+    "category": "Compliance",
+    "severity": "error",
+    "content": "Deviation Records (MISRA Compliance 2020). Required guidelines must be followed unless exceptional circumstances apply, and every exception needs a formal deviation record. NEVER leave a suppression comment that does not cite the approved deviation identifier and its rationale. ALWAYS reference the record so an assessor can trace the violation to its approval. Raise nothing unless the undocumented suppression is visible in the diff. (MISRA Compliance 2020 | MISRA C 2012 Permits | Jama Software MISRA C guide)",
+    "goodExamples": "/* MISRA C 2025 Rule 11.4 deviation DEV-0142: memory-mapped register access,\n   approved 2026-02-11, see compliance/deviations/DEV-0142.md */\nvolatile uint32_t *const status = (volatile uint32_t *)STATUS_REG_ADDR;",
+    "badExamples": "/* MISRA deviation - needed for hardware access */\nvolatile uint32_t *const status = (volatile uint32_t *)STATUS_REG_ADDR;",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Re-categorization Must Not Relax a Required Guideline",
+    "category": "Compliance",
+    "severity": "error",
+    "content": "Guideline Re-categorization Plan (MISRA Compliance 2020). A GRP may raise a guideline's category but never lower it: Required can be upgraded to Mandatory, and Advisory to Required or Mandatory, but a Required guideline can never be relaxed to Advisory or disapplied. NEVER commit a GRP or checker configuration that lowers a category. Raise nothing unless the re-categorization is visible in the diff. (MISRA Compliance 2020 | Jama Software MISRA C guide)",
+    "goodExamples": "# GRP: upgrades only.\nrule_21_3:  { misra_category: required,  project_category: mandatory }\nrule_15_5:  { misra_category: advisory,  project_category: required }",
+    "badExamples": "# GRP: Required relaxed to Advisory - not permitted.\nrule_21_3:  { misra_category: required,  project_category: advisory }",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Advisory Departure Needs Documented Justification",
+    "category": "Compliance",
+    "severity": "recommendation",
+    "content": "Advisory Category (MISRA Compliance 2020). Advisory guidelines should be followed where practical, with a documented justification where they are not. ALWAYS record why the departure is acceptable next to the code rather than leaving it silent, even though no formal deviation record is required. Raise nothing unless the undocumented departure is visible in the diff. (MISRA Compliance 2020 | Jama Software MISRA C guide)",
+    "goodExamples": "/* Rule 15.5 (Advisory) departure: single early return keeps the bounds\n   check adjacent to the access; justified in DES-0031. */\nif (idx >= len) { return false; }",
+    "badExamples": "if (idx >= len) { return false; }",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Guideline Enforcement Plan Entry for Every Guideline",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "Guideline Enforcement Plan (MISRA Compliance 2020). The GEP records how each guideline is enforced, and a compliance claim is not defensible with gaps in it. NEVER add or re-scope a guideline in the checker configuration without the matching GEP entry naming the enforcement method. Raise nothing unless the configuration change is visible in the diff. (MISRA Compliance 2020 GEP | Jama Software MISRA C guide)",
+    "goodExamples": "# gep.yaml\nrule_1_2:   { enforcement: static-analysis, tool: ldra, decidable: false, review: manual }\ndir_4_1:    { enforcement: review,          artifact: design/DES-0031.md }",
+    "badExamples": "# Checker gained a rule with no GEP entry recording how it is enforced.\nenabled_rules:\n  - rule_1_2",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Guideline Compliance Summary Kept Current",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "Guideline Compliance Summary (MISRA Compliance 2020). The GCS declares the compliance level achieved, including guidelines not applied, violations, and deviations, and it must track changing requirements and verification work rather than being written once. ALWAYS update the GCS in the same change that adds a deviation or disapplies a guideline. Raise nothing unless the compliance artifact is visible in the diff. (MISRA Compliance 2020 GCS | Jama Software MISRA C guide)",
+    "goodExamples": "# gcs.yaml - updated in the same change as DEV-0142\nrule_11_4: { status: deviations, records: [DEV-0142], count: 1 }",
+    "badExamples": "# A deviation was added in this change but the GCS still claims compliant.\nrule_11_4: { status: compliant, records: [], count: 0 }",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Record the MISRA Edition the Project Claims",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "Edition Selection (MISRA C 2025 / MISRA C++ 2023). Compliance claims apply per project, with processes and acceptance criteria agreed at the outset, so the edition has to be explicit. MISRA C 2025 is current for C and MISRA C++ 2023 for C++17. NEVER leave the checker configuration without a pinned edition. ALWAYS document why an older edition remains appropriate when a project stays on one. Raise nothing unless the configuration is visible in the diff. (MISRA C 2025 | MISRA C++ 2023 | Jama Software MISRA C guide)",
+    "goodExamples": "misra:\n  standard: misra-c-2025\n  rationale: new program, no prior certification basis",
+    "badExamples": "misra:\n  standard: latest",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Static Analysis Must Stay Enabled in the Build",
+    "category": "Compliance",
+    "severity": "error",
+    "content": "Enforcement Mechanism (MISRA Compliance 2020). MISRA assumes static analysis as the enforcement mechanism, so disabling the checker, dropping it from a pipeline stage, or letting it run non-blocking silently voids the claim for every guideline it covers. NEVER weaken the gate without a recorded decision. Raise nothing unless the build or pipeline change is visible in the diff. (MISRA Compliance 2020 | ISO 26262-6 | Jama Software MISRA C guide)",
+    "goodExamples": "- name: MISRA static analysis\n  run: ldra --standard misra-c-2025 --fail-on violation src/",
+    "badExamples": "- name: MISRA static analysis\n  continue-on-error: true\n  run: ldra --standard misra-c-2025 src/ || true",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Manual Review for Undecidable Guidelines",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "Undecidable Guidelines (MISRA C 2012 Amendment onwards). Some rules are undecidable, including some in the Mandatory category, and directives are not checkable from source at all, so tool selection does not remove the manual review burden. NEVER mark an undecidable or review-enforced guideline as tool-covered. ALWAYS record the reviewer and the evidence. Raise nothing unless the enforcement claim is visible in the diff. (MISRA Compliance 2020 | MISRA C 2025 decidability | Jama Software MISRA C guide)",
+    "goodExamples": "rule_1_3:  { decidable: false, enforcement: static-analysis + manual, reviewer: required }\ndir_4_12:  { decidable: n/a,   enforcement: manual, artifact: review/REV-0088.md }",
+    "badExamples": "rule_1_3:  { decidable: false, enforcement: static-analysis }\ndir_4_12:  { enforcement: static-analysis }",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Tool Qualification for Higher Tool Confidence Levels",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "Tool Qualification (ISO 26262). Higher tool confidence levels may require the static analysis tool to be qualified, and qualifying a MISRA checker involves validating its output formats and its handling of implementation-defined aspects of the language. NEVER change checker, version, or target configuration on a qualified toolchain without re-running the qualification evidence. Raise nothing unless the toolchain change is visible in the diff. (ISO 26262-8 | MISRA Compliance 2020 | Jama Software MISRA C guide)",
+    "goodExamples": "# Pinned and tied to the qualification record.\nanalyser: { tool: ldra, version: 9.8.2, qualification: TQ-0007, tcl: TCL3 }",
+    "badExamples": "analyser: { tool: ldra, version: latest }",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Legacy Baseline Applies Only to Unmodified Code",
+    "category": "Compliance",
+    "severity": "error",
+    "content": "Legacy Adoption (MISRA guidance on existing code). For proven existing code the benefit of compliance may be outweighed by the risk of introducing defects during rework, so the accepted path is to baseline existing violations and enforce the guidelines on new and modified code only. NEVER extend a baseline entry to cover a line this change touches. ALWAYS bring modified code up to the standard. Raise nothing unless the baseline change is visible in the diff. (MISRA Compliance 2020 | Jama Software MISRA C guide)",
+    "goodExamples": "# Baseline frozen at adoption; modified lines are fixed, not re-baselined.\nbaseline:\n  legacy/decode.c: { frozen_at: 2026-01-15, violations: 214 }",
+    "badExamples": "# New violations appended to the baseline instead of being fixed.\nbaseline:\n  legacy/decode.c: { frozen_at: 2026-01-15, violations: 231 }",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Data Race on Shared State",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Concurrency Directives (MISRA C 2012 Amendment 4, carried into MISRA C 2025). NEVER access an object from more than one thread where at least one access is a write without a lock or an atomic type; a data race is undefined behavior, not a torn read. ALWAYS hold the same mutex for every access, or declare the object atomic. Raise nothing unless the unsynchronized shared access is visible in the diff. (MISRA C 2025 Dir 5.1 Required | CWE-362 | Jama Software MISRA C guide)",
+    "goodExamples": "static uint32_t fault_count;\nstatic mtx_t fault_lock;\n\nvoid record_fault(void)\n{\n    (void)mtx_lock(&fault_lock);\n    fault_count++;\n    (void)mtx_unlock(&fault_lock);\n}",
+    "badExamples": "static uint32_t fault_count;\n\nvoid record_fault(void)\n{\n    fault_count++; /* also incremented from the ISR thread */\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Deadlock from Inconsistent Lock Ordering",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Concurrency Directives (MISRA C 2025 Dir 5.2). NEVER acquire two or more mutexes in an order that differs between call paths; the circular wait deadlocks the system with no diagnostic. ALWAYS define one global lock order and take locks in that order everywhere. Raise nothing unless the second acquisition is visible in the diff. (MISRA C 2025 Dir 5.2 Required | CWE-833 | Jama Software MISRA C guide)",
+    "goodExamples": "/* Lock order is always calibration before telemetry. */\n(void)mtx_lock(&calibration_lock);\n(void)mtx_lock(&telemetry_lock);",
+    "badExamples": "/* Other path takes calibration then telemetry - circular wait. */\n(void)mtx_lock(&telemetry_lock);\n(void)mtx_lock(&calibration_lock);",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Thread Created After Initialization",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Concurrency Directives (MISRA C 2025 Dir 5.3). NEVER create a thread outside system initialization; dynamic thread creation makes worst-case timing and stack use unbounded, which a safety argument cannot accommodate. ALWAYS start a fixed set of threads at startup and hand work to them through a bounded queue. Raise nothing unless the thread creation is visible in the diff. (MISRA C 2025 Dir 5.3 Required | Jama Software MISRA C guide)",
+    "goodExamples": "void system_init(void)\n{\n    for (size_t i = 0U; i < WORKER_COUNT; i++) {\n        (void)thrd_create(&workers[i], worker_main, NULL);\n    }\n}",
+    "badExamples": "void on_request(const request_t *req)\n{\n    thrd_t t;\n    (void)thrd_create(&t, handle_request, (void *)req);\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Atomic Types for Shared Flags, Lock-Freedom Checked Separately",
+    "category": "Reliability",
+    "severity": "warning",
+    "content": "Atomic Types (MISRA C 2023 multithreading coverage). NEVER use a plain volatile object as a flag shared between threads; volatile orders nothing and gives no atomicity. ALWAYS use an _Atomic type with memory_order_seq_cst, which removes the data race but establishes nothing about lock-freedom: an implementation is free to lower an atomic object onto a lock. ALWAYS require the matching ATOMIC_*_LOCK_FREE macro to be 2 at compile time where the access genuinely has to be lock-free, such as a flag an ISR or a signal handler reaches. Raise nothing unless the shared flag is visible in the diff. (MISRA C 2025 Rule 21.x | CWE-662 | Jama Software MISRA C guide)",
+    "goodExamples": "#include <stdatomic.h>\n#include <stdbool.h>\n\n/* The shutdown ISR reaches this flag, so a lock-backed atomic would not do. */\n#if ATOMIC_BOOL_LOCK_FREE != 2\n#error \"_Atomic bool is not always lock-free on this target\"\n#endif\n\nstatic _Atomic bool shutdown_requested;\n\nvoid request_shutdown(void)\n{\n    atomic_store_explicit(&shutdown_requested, true, memory_order_seq_cst);\n}",
+    "badExamples": "static volatile bool shutdown_requested;\n\nvoid request_shutdown(void)\n{\n    shutdown_requested = true; /* volatile is not atomic */\n}\n\n/* Atomic, so no data race - but nothing establishes the lock-free access\n   the ISR needs; _Atomic alone permits a lock-backed implementation. */\nstatic _Atomic bool fault_latched;\n\nvoid isr_latch_fault(void)\n{\n    atomic_store_explicit(&fault_latched, true, memory_order_seq_cst);\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] ISO 26262 Coding Standard for ASIL Unit Implementation",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "ISO 26262 (automotive functional safety). Teams working across ASIL tiers use MISRA C during software unit design and implementation, and ISO 26262 programs commonly use static code analysis as the verification method. NEVER add a unit to an ASIL-classified component outside the language subset the safety plan names, and never exclude it from analysis. Raise nothing unless the ASIL-scoped source or its analysis scope is visible in the diff. (ISO 26262-6 | ASIL A-D | Jama Software MISRA C guide)",
+    "goodExamples": "/* @safety ASIL-B  @unit UNIT-0142  @standard MISRA C 2025 */\nstatic bool brake_pressure_valid(uint16_t raw);",
+    "badExamples": "/* ASIL-B unit excluded from the MISRA scan to unblock the build. */\nanalysis_exclude:\n  - src/brake/pressure.c",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] DO-178C Coding Standard Objectives for Airborne Software",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "DO-178C (airborne software). DO-178C sets coding-standard objectives aligned with MISRA without naming the guidelines directly, so the project's own coding standard is the artifact the objectives are assessed against. NEVER introduce a construct the project standard excludes, and never change that standard without reassessing the affected objectives. Raise nothing unless the source or the standard is visible in the diff. (DO-178C 6.3.4 | DO-178C 11.8 | Jama Software MISRA C guide)",
+    "goodExamples": "/* @do178c DAL-C  @standard coding-standard-v3.2  @req SRS-0491 */\nstatic uint16_t altitude_delta_ft(uint16_t a, uint16_t b);",
+    "badExamples": "/* DAL-C source using a construct the project coding standard excludes,\n   with no reassessment recorded. */\nstatic uint16_t altitude_delta_ft(uint16_t a, uint16_t b) { goto retry; }",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] IEC 62304 Coding Standard for Medical Device Software",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "IEC 62304 (medical device software). IEC 62304 programs define programming procedures and coding standards as part of their acceptance criteria, so the coding standard is acceptance evidence rather than a style preference. NEVER merge software-item source that departs from the named standard without the deviation the software development plan requires. Raise nothing unless the software-item source is visible in the diff. (IEC 62304 5.5.3 | Software Safety Class A/B/C | Jama Software MISRA C guide)",
+    "goodExamples": "/* @iec62304 Class C  @item SI-0007  @standard MISRA C 2025 */\nstatic bool infusion_rate_within_limits(uint32_t ml_per_hour);",
+    "badExamples": "/* Class C software item with no standard recorded and no deviation. */\nstatic bool infusion_rate_within_limits(uint32_t ml_per_hour);",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] EN 50128 Coding Standard for Railway Control and Protection",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "EN 50128 (railway control and protection software). EN 50128 recommends a coding standard across Software Safety Integrity Levels and mandates one at the higher levels, and MISRA satisfies its intent to prevent undefined behavior, remove ambiguity, and restrict library usage. NEVER add SIL 3 or SIL 4 source outside the subset, and never widen library usage without updating the restriction list. Raise nothing unless the source or the list is visible in the diff. (EN 50128 SIL 0-4 | Jama Software MISRA C guide)",
+    "goodExamples": "/* @en50128 SIL-4  @standard MISRA C 2025  @library-subset approved-v2 */\nstatic bool interlocking_state_valid(uint8_t route_id);",
+    "badExamples": "/* SIL-4 source pulling in a library function outside the approved subset. */\n#include <stdlib.h>\nstatic bool interlocking_state_valid(uint8_t route_id) { return atoi(getenv(\"ROUTE\")) > 0; }",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] IEC 60880 Coding Standard for Nuclear Category A Functions",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "IEC 60880 (nuclear power plant safety systems). IEC 60880 requires adherence to coding standards such as MISRA for Category A functions, the most safety-significant class. NEVER add or modify a Category A function outside the language subset, and never leave its safety classification unrecorded. Raise nothing unless the Category A source is visible in the diff. (IEC 60880 Category A | Jama Software MISRA C guide)",
+    "goodExamples": "/* @iec60880 Category-A  @function FN-0021  @standard MISRA C 2025 */\nstatic bool reactor_trip_demanded(const sensor_set_t *readings);",
+    "badExamples": "/* Category A function using dynamic allocation, excluded by the subset. */\nstatic bool reactor_trip_demanded(const sensor_set_t *readings)\n{\n    sensor_set_t *copy = malloc(sizeof(*copy));\n    return evaluate(copy);\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] IEC 61508 Language Subset for Safety-Related Software",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "IEC 61508 (functional safety). The guidelines originate in IEC 61508-oriented safety work, and the standard expects safety-related software to be written in a language subset that excludes unsafe constructs. NEVER add safety-related source outside the subset the safety plan names, and never leave the SIL of a new module unrecorded. Raise nothing unless the safety-related source is visible in the diff. (IEC 61508-3 | SIL 1-4 | Jama Software MISRA C guide)",
+    "goodExamples": "/* @iec61508 SIL-3  @module MOD-0014  @subset MISRA C 2025 */\nstatic bool pressure_trip_active(uint16_t bar);",
+    "badExamples": "/* Safety-related module with no SIL and no subset recorded. */\nstatic bool pressure_trip_active(uint16_t bar);",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Traceability from Safety-Related Code to Its Requirement",
+    "category": "Compliance",
+    "severity": "warning",
+    "content": "Live Traceability (MISRA Compliance evidence). MISRA analysis happens at the code level, but the compliance claim built on it depends on requirements and test artifacts staying connected to that code, so that a changed upstream requirement flags its downstream tests before the gap becomes a defect. NEVER add or change safety-related code without the requirement identifier it satisfies. Raise nothing unless the safety-related change is visible in the diff. (MISRA Compliance 2020 | ISO 26262-6 | DO-178C 6.3.4 | Jama Software MISRA C guide)",
+    "goodExamples": "/* @req SRS-0491  @test TC-1183  @asil B */\nstatic bool brake_pressure_valid(uint16_t raw)\n{\n    return (raw >= PRESSURE_MIN_RAW) && (raw <= PRESSURE_MAX_RAW);\n}",
+    "badExamples": "static bool brake_pressure_valid(uint16_t raw)\n{\n    return (raw >= PRESSURE_MIN_RAW) && (raw <= PRESSURE_MAX_RAW);\n}",
+    "scopes": []
+  }
+]

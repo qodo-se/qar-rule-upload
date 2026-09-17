@@ -110,7 +110,10 @@ cat > /tmp/qartest/snake.json <<'EOF'
   {"name": "Snake alias rule", "category": "Quality", "severity": "WARNING",
    "content": "Aliases and case are normalised.",
    "good_examples": "good()", "bad_examples": "bad()",
-   "scopes": ["  /owner/repo/  ", "/owner/repo/src/"]}
+   "scopes": ["  /owner/repo/  ", "/owner/repo/src/"]},
+  {"name": "Empty scope rule", "category": "Quality", "severity": "error",
+   "content": "An empty list is the universal scope, same as omitting the key.",
+   "goodExamples": "", "badExamples": "", "scopes": []}
 ]
 EOF
 QODO_API_KEY=sk-x ./upload-rules.sh "$BASE" - < /tmp/qartest/snake.json
@@ -274,6 +277,12 @@ else:
 extra_rule = [e for e in log if e["body"]["name"] == "Extra field rule"]
 if not extra_rule: errs.append("extra-field rule never sent")
 elif set(extra_rule[0]["body"]) - allowed: errs.append("non-contract fields leaked to the server")
+
+# "scopes": [] is the universal scope spelled out, so it has to reach the server
+# as the body an omitted key produces, not as an empty list.
+empty_scope = [e for e in log if e["body"]["name"] == "Empty scope rule"]
+if not empty_scope: errs.append("empty-scopes rule never sent")
+elif "scopes" in empty_scope[0]["body"]: errs.append("empty scopes list sent instead of dropped")
 
 # rule.json omits scopes, so the key must be absent; names read from the file so a rename cannot void this.
 with open("rule.json") as fh:
