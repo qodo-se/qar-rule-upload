@@ -402,5 +402,13 @@ Requires `python3` for the mock; no other dependencies.
 `main`, on pull requests targeting it, and on demand from the Actions tab. A failing run puts the
 `PASSED/FAILED` tally and every `FAIL:` line in the job summary, raises one annotation per failure
 so they show on the checks tab, and uploads the suite output with both mock-server logs as a
-`test-logs` artifact. The job also installs `jsonschema`, so the schema case runs there instead of
-skipping the way it does on a machine without it.
+`test-logs` artifact. The job installs `jsonschema` from
+[`.github/ci-requirements.txt`](.github/ci-requirements.txt), so the schema case runs there instead
+of skipping the way it does on a machine without it.
+
+The GitHub Actions used by the job are pinned to reviewed commit SHAs, with their release versions
+kept in trailing comments. Python package artifacts are also pinned by exact version and sha256 and
+installed with `pip --require-hashes`, which forces the requirements file to carry the whole
+dependency closure. The hosted runner image, its bundled tools (including Bash, jq, and curl), and
+the resolved Python 3.12 patch release remain managed by GitHub and may change independently.
+The file's header carries the `uv pip compile` line that regenerates it.

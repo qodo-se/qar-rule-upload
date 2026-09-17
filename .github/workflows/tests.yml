@@ -22,9 +22,11 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v7
+      # Actions are pinned to the commit a reviewed release points at: a tag can
+      # be moved, a commit cannot, so CI cannot change underfoot.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
@@ -32,10 +34,13 @@ jobs:
         # bash, jq and curl ship with the runner. jsonschema is what keeps the
         # schema case from skipping itself, so the schema is checked against the
         # script's own verdicts on every run rather than only on a dev machine.
+        # --require-hashes refuses anything whose digest is not in the lock,
+        # which also forces the lock to carry the whole dependency closure.
         run: |
           jq --version
           curl --version | head -1
-          python3 -m pip install --quiet jsonschema
+          python3 -m pip install --quiet --require-hashes -r .github/ci-requirements.txt
+          python3 -c 'import jsonschema; print("jsonschema", jsonschema.__version__)'
 
       - name: Run the suite
         shell: bash
@@ -80,7 +85,7 @@ jobs:
 
       - name: Upload logs
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-logs
           path: test-logs/
