@@ -1,6 +1,6 @@
 [
   {
-    "name": "[NGC-CWE] Format String (CWE-134)",
+    "name": "[Qodo-CWE] Format String (CWE-134)",
     "category": "Security",
     "severity": "error",
     "content": "Format String (CWE-134). NEVER call sprintf and NEVER pass user-controlled input as the format string argument to a printf-family function. ALWAYS use a fixed format literal and pass user data as a typed argument. Raise nothing unless the offending call is visible in the diff. (CWE-134 | DISA ASD STIG V-222612 APSC-DV-002590 CAT I | CERT C FIO30-C Exact)",
@@ -8,7 +8,7 @@
     "badExamples": "void write_frame_label(const char *operator_note) {\n    printf(operator_note);\n    printf(\"\\n\");\n}"
   },
   {
-    "name": "[NGC-CWE] Stack Buffer Overflow (CWE-121)",
+    "name": "[Qodo-CWE] Stack Buffer Overflow (CWE-121)",
     "category": "Security",
     "severity": "error",
     "content": "Stack Buffer Overflow (CWE-121). NEVER call gets or strcpy or strcat or an unbounded scanf %s conversion. ALWAYS use the length-bounded equivalent with an explicit destination size. Raise the bounds concern ONLY when the destination declaration and the copy are both visible in the diff and no length check appears between them. (CWE-121 | DISA ASD STIG V-222612 APSC-DV-002590 CAT I | CERT C STR31-C)",
@@ -16,7 +16,7 @@
     "badExamples": "void cache_downlink_ident(const char *ident) {\n    char slot[32];\n    strcpy(slot, ident);\n    printf(\"ident=%s\\n\", slot);\n}"
   },
   {
-    "name": "[NGC-CWE] Double Free (CWE-415)",
+    "name": "[Qodo-CWE] Double Free (CWE-415)",
     "category": "Security",
     "severity": "error",
     "content": "Double Free (CWE-415). NEVER release the same pointer twice along any path visible in the diff. ALWAYS set the pointer to NULL at the free site when a later release of it appears in the same function. Raise nothing when only one release is visible. (CWE-415 | DISA ASD STIG V-222648 APSC-DV-003170 CAT II | CERT C MEM31-C)",
@@ -24,7 +24,7 @@
     "badExamples": "void release_frame(Frame *f, bool retry) {\n    if (f == nullptr) return;\n    free(f->payload);\n    if (retry) {\n        free(f->payload);\n    }\n    f->len = 0;\n}"
   },
   {
-    "name": "[NGC-CWE] Use After Free (CWE-416)",
+    "name": "[Qodo-CWE] Use After Free (CWE-416)",
     "category": "Security",
     "severity": "error",
     "content": "Use After Free (CWE-416). NEVER read from or write through a pointer after its memory has been released. ALWAYS null the pointer at the free site when the same function reads it afterwards. Raise nothing on a raw pointer that is never read after release. (CWE-416 | DISA ASD STIG V-222648 APSC-DV-003170 CAT II | CERT C MEM30-C Exact)",
@@ -32,7 +32,7 @@
     "badExamples": "const char *take_session(const std::string &key) {\n    auto it = g_sessions.find(key);\n    if (it == g_sessions.end()) return nullptr;\n    char *value = it->second;\n    free(value);\n    g_sessions.erase(it);\n    return value;\n}"
   },
   {
-    "name": "[NGC-CWE] OS Command Injection (CWE-78)",
+    "name": "[Qodo-CWE] OS Command Injection (CWE-78)",
     "category": "Security",
     "severity": "error",
     "content": "OS Command Injection (CWE-78). NEVER pass a string built from untrusted input to system or popen or any exec variant that invokes a shell. ALWAYS pass arguments as a separate array to an API that spawns no shell. Raise nothing when the sink already takes an argument array. (CWE-78 | DISA ASD STIG V-222604 APSC-DV-002510 CAT I | OWASP A03:2021)",
@@ -40,7 +40,7 @@
     "badExamples": "int check_link(const char *ground_station) {\n    char cmd[512];\n    snprintf(cmd, sizeof(cmd), \"ping -c 1 %s\", ground_station);\n    return system(cmd);\n}"
   },
   {
-    "name": "[NGC-CWE] Path Traversal (CWE-22)",
+    "name": "[Qodo-CWE] Path Traversal (CWE-22)",
     "category": "Security",
     "severity": "error",
     "content": "Path Traversal (CWE-22). NEVER open a file at a path built from untrusted input without canonicalizing it first. ALWAYS ADD a realpath call and a base-prefix check before the open. NEVER advise replacing an exact-match allowlist with a prefix check, because that is strictly weaker. (CWE-22 | DISA ASD STIG V-222605 APSC-DV-002520 CAT II | OWASP A01:2021)",
@@ -48,7 +48,7 @@
     "badExamples": "std::string load_artefact(const std::string &requested_name) {\n    std::string path = std::string(ARTEFACT_ROOT) + requested_name;\n    FILE *f = fopen(path.c_str(), \"rb\");\n    if (!f) return \"\";\n    char buf[4096];\n    size_t n = fread(buf, 1, sizeof(buf), f);\n    fclose(f);\n    return std::string(buf, n);\n}"
   },
   {
-    "name": "[NGC-CWE] Allocation Size Overflow (CWE-190)",
+    "name": "[Qodo-CWE] Allocation Size Overflow (CWE-190)",
     "category": "Security",
     "severity": "error",
     "content": "Allocation Size Overflow (CWE-190). NEVER derive an allocation size from arithmetic on an externally supplied value unless the result is checked for wraparound in the type the arithmetic is performed in. ALWAYS bound the count against the maximum of that operand type divided by the element size. A SIZE_MAX bound on narrower operands is inert and MUST NOT be offered as the fix. (CWE-190 | CWE-131 secondary | DISA ASD STIG V-222612 APSC-DV-002590 CAT I | CERT C MEM07-C)",
@@ -56,7 +56,7 @@
     "badExamples": "void *reserve_frame_pool(unsigned int count, unsigned int width) {\n    unsigned int total = count * width;\n    return malloc(total);\n}"
   },
   {
-    "name": "[NGC-CWE] Unchecked Allocation Result (CWE-476)",
+    "name": "[Qodo-CWE] Unchecked Allocation Result (CWE-476)",
     "category": "Security",
     "severity": "error",
     "content": "Unchecked Allocation Result (CWE-476). NEVER dereference a pointer returned by malloc or calloc or realloc in the same function that allocated it unless a null test precedes the dereference. Raise nothing when the pointer is returned to a caller rather than dereferenced. (CWE-476 | DISA ASD STIG V-222648 APSC-DV-003170 CAT II | CERT C EXP34-C Exact)",
@@ -64,11 +64,187 @@
     "badExamples": "char *parse_frame_header(const char *raw, size_t len) {\n    char *copy = (char *)malloc(len + 1);\n    memcpy(copy, raw, len);\n    copy[len] = '\\0';\n    return copy;\n}"
   },
   {
-    "name": "[NGC-CWE] Unvalidated Numeric Conversion (CWE-1287)",
+    "name": "[Qodo-CWE] Unvalidated Numeric Conversion (CWE-1287)",
     "category": "Security",
     "severity": "error",
     "content": "Unvalidated Numeric Conversion (CWE-1287). NEVER accept an externally supplied numeric string through atoi or atol, because neither signals an error on malformed input. ALWAYS parse with strtol then check endptr and reject any value outside the documented range. Raise nothing on a cast whose operand is already range-checked. (CWE-1287 | CWE-1284 secondary | DISA ASD STIG V-222606 APSC-DV-002530 CAT II)",
     "goodExamples": "int select_downlink_port_checked(const char *env_value) {\n    if (env_value == nullptr) return -1;\n    char *end = nullptr;\n    long parsed = strtol(env_value, &end, 10);\n    if (end == env_value || *end != '\\0') return -1;\n    if (parsed < 1 || parsed > 65535) return -1;\n    return static_cast<int>(parsed);\n}",
     "badExamples": "int select_downlink_port(const char *env_value) {\n    int port = atoi(env_value);\n    return port;\n}"
+  },
+  {
+    "name": "[Qodo-OWASP] XML External Entity (CWE-611)",
+    "category": "Security",
+    "severity": "error",
+    "content": "XML External Entity (CWE-611). NEVER parse XML from an untrusted source with external entity resolution or DTD processing left enabled. ALWAYS disable both explicitly on the parser or factory before the first parse. Raise nothing when the parser is constructed with both already off. (CWE-611 | OWASP A02:2025 | DISA ASD STIG V-222608 APSC-DV-002550 CAT I)",
+    "goodExamples": "DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();\nf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);\nf.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true);\nf.setExpandEntityReferences(false);\nDocument d = f.newDocumentBuilder().parse(untrustedStream);",
+    "badExamples": "DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();\nDocument d = f.newDocumentBuilder().parse(untrustedStream);"
+  },
+  {
+    "name": "[Qodo-OWASP] Unpinned Dependency (CWE-1395)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Unpinned Dependency (CWE-1395). NEVER add or change a dependency without an exact pinned version. ALWAYS record the resolved version and its integrity digest in a committed lockfile. Raise nothing when the manifest change is accompanied by a lockfile update in the same diff. (CWE-1395 | OWASP A03:2025 | DISA ASD STIG V-222658 APSC-DV-003240 CAT I)",
+    "goodExamples": "# requirements.txt, exact pins\nrequests==2.32.3\ncryptography==43.0.1\n# and requirements.lock committed alongside, carrying --hash= digests",
+    "badExamples": "# requirements.txt\nrequests>=2.0\ncryptography"
+  },
+  {
+    "name": "[Qodo-OWASP] Broken Cryptography (CWE-327)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Broken Cryptography (CWE-327). NEVER use MD5 or SHA-1 or DES or RC4 or ECB mode for any security purpose. NEVER draw a security-relevant value from rand or Math.random or a clock. ALWAYS use a FIPS-validated algorithm and a cryptographic random source. (CWE-327 | CWE-338 secondary | OWASP A04:2025 | DISA ASD STIG V-222555 APSC-DV-001860 CAT I)",
+    "goodExamples": "Security.addProvider(new BouncyCastleFipsProvider());\nMessageDigest md = MessageDigest.getInstance(\"SHA-256\", \"BCFIPS\");\nbyte[] token = new byte[32];\nSecureRandom.getInstance(\"DEFAULT\", \"BCFIPS\").nextBytes(token);\n// FIPS 140-3 certificate number recorded in the SSP",
+    "badExamples": "MessageDigest md = MessageDigest.getInstance(\"MD5\");\nlong token = new Random().nextLong();"
+  },
+  {
+    "name": "[Qodo-OWASP] Hard-coded Credential (CWE-798)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Hard-coded Credential (CWE-798). NEVER place a password or API key or bearer token or private key as a literal in source or in a committed configuration file. ALWAYS read the credential at runtime from an injected secret or a secret manager. Raise nothing on an obvious placeholder or a value read from the environment. (CWE-798 | OWASP A07:2025 | DISA ASD STIG V-222542 APSC-DV-001740 CAT I)",
+    "goodExamples": "import os\nDB_PASSWORD = os.environ[\"DB_PASSWORD\"]\nAPI_KEY = os.environ[\"API_KEY\"]",
+    "badExamples": "DB_PASSWORD = \"hunter2\"\nAPI_KEY = \"sk-live-9f3a2b\""
+  },
+  {
+    "name": "[Qodo-OWASP] Untrusted Deserialization (CWE-502)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Untrusted Deserialization (CWE-502). NEVER deserialize data from an untrusted source into arbitrary or caller-named types. ALWAYS parse into an explicit schema, or restrict resolvable types to a fixed allowlist checked before construction. (CWE-502 | OWASP A08:2025 | DISA ASD STIG V-222609 APSC-DV-002560 CAT I)",
+    "goodExamples": "import json\npayload = json.loads(request.body)\nobj = OrderSchema().load(payload)  # explicit schema, fixed field set",
+    "badExamples": "import pickle\nobj = pickle.loads(request.body)"
+  },
+  {
+    "name": "[Qodo-OWASP] Log Injection and Log Disclosure (CWE-117)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Log Injection and Log Disclosure (CWE-117). NEVER write unsanitised external input into a log record, because an embedded newline forges a separate entry. NEVER log a credential or token or a full personal record. ALWAYS strip control characters before the write. (CWE-117 | CWE-532 secondary | OWASP A09:2025 | DISA ASD STIG V-222501 APSC-DV-001290 CAT II)",
+    "goodExamples": "log.info(\"user={} action={}\", sanitize(userName), sanitize(action));\nlog.debug(\"correlationId={}\", correlationId);",
+    "badExamples": "log.info(\"user=\" + userName + \" action=\" + action);\nlog.debug(\"token=\" + jwt);"
+  },
+  {
+    "name": "[Qodo-CMMC] FIPS-Validated Cryptography for CUI (CWE-1240)",
+    "category": "Security",
+    "severity": "error",
+    "content": "FIPS-Validated Cryptography for CUI (CWE-1240). NEVER protect CUI with a cryptographic implementation that is not FIPS-validated, because a correct algorithm from an unvalidated module still fails the requirement. ALWAYS call through a validated module and record its certificate number. Raise nothing when the call already targets a validated provider. (CWE-1240 | CMMC SC.L2-3.13.11 | DISA ASD STIG V-222570 APSC-DV-002020 CAT II)",
+    "goodExamples": "Security.addProvider(new BouncyCastleFipsProvider());\nCipher c = Cipher.getInstance(\"AES/GCM/NoPadding\", \"BCFIPS\");\n// FIPS 140-3 certificate number recorded in the SSP",
+    "badExamples": "Cipher c = Cipher.getInstance(\"AES/GCM/NoPadding\");  // default provider, not validated"
+  },
+  {
+    "name": "[Qodo-CMMC] CUI in Transit (CWE-319)",
+    "category": "Security",
+    "severity": "error",
+    "content": "CUI in Transit (CWE-319). NEVER transmit CUI over an unauthenticated or unencrypted channel. ALWAYS require TLS 1.2 or higher with certificate verification left enabled. Raise nothing on a loopback or in-process call that never crosses a host boundary. (CWE-319 | CMMC SC.L2-3.13.8 | DISA ASD STIG V-222596 APSC-DV-002440 CAT I)",
+    "goodExamples": "import ssl\nimport requests\nfrom requests.adapters import HTTPAdapter\n\nclass TLS12Adapter(HTTPAdapter):\n    def init_poolmanager(self, *args, **kwargs):\n        context = ssl.create_default_context(cafile=\"/etc/pki/ca-bundle.crt\")\n        context.minimum_version = ssl.TLSVersion.TLSv1_2\n        kwargs[\"ssl_context\"] = context\n        return super().init_poolmanager(*args, **kwargs)\n\nsession = requests.Session()\nsession.mount(\"https://\", TLS12Adapter())\nsession.post(\"https://internal-api/cui\", json=payload)  # TLS 1.2+, verification on",
+    "badExamples": "requests.post(\"http://internal-api/cui\", json=payload, verify=False)"
+  },
+  {
+    "name": "[Qodo-CMMC] Credential Protection (CWE-256)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Credential Protection (CWE-256). NEVER store or transmit a password in plaintext or under a reversible encoding. ALWAYS store a salted hash from a deliberately slow function such as Argon2id or scrypt or PBKDF2, and ALWAYS send credentials only over an encrypted channel. (CWE-256 | CWE-916 secondary | CMMC IA.L2-3.5.10 | DISA ASD STIG V-222542 APSC-DV-001740 CAT I | V-222543 APSC-DV-001750 CAT I)",
+    "goodExamples": "from argon2 import PasswordHasher\nstored = PasswordHasher().hash(password)  # salted, deliberately slow",
+    "badExamples": "stored = hashlib.md5(password.encode()).hexdigest()"
+  },
+  {
+    "name": "[Qodo-CMMC] Least Privilege in Code (CWE-250)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Least Privilege in Code (CWE-250). NEVER run a process or container or database session with more privilege than its function needs. ALWAYS drop privilege after any step that required it, and ALWAYS prefer a scoped role over an administrative one. Raise nothing when the elevated step is followed by an explicit drop. (CWE-250 | CMMC AC.L2-3.1.5 | DISA ASD STIG V-222429 APSC-DV-000500 CAT II)",
+    "goodExamples": "# Dockerfile\nFROM base\nRUN useradd -r appuser\nUSER appuser\nCMD [\"/app/server\"]",
+    "badExamples": "# Dockerfile\nFROM base\nCMD [\"/app/server\"]   # runs as root"
+  },
+  {
+    "name": "[Qodo-CMMC] Audit Accountability (CWE-778)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Audit Accountability (CWE-778). NEVER record a security-relevant action without the identity of the individual or service principal that caused it. ALWAYS log the actor and the action and the outcome and a UTC timestamp. Raise nothing on a debug or trace statement that carries no security relevance. (CWE-778 | CMMC AU.L2-3.3.2 | DISA ASD STIG V-222438 APSC-DV-000590 CAT II)",
+    "goodExamples": "log.info(\"actor={} action=delete target={} outcome=ok ts={}\",\n         principal.getName(), recordId, Instant.now());",
+    "badExamples": "log.info(\"record deleted\");"
+  },
+  {
+    "name": "[Qodo-CMMC] CUI in Source and Fixtures (CWE-540)",
+    "category": "Security",
+    "severity": "error",
+    "content": "CUI in Source and Fixtures (CWE-540). NEVER commit CUI or export-controlled content into source or comments or test fixtures or sample data. ALWAYS use synthetic data in fixtures. Raise nothing on data that is clearly synthetic or already published. (CWE-540 | CMMC MP.L2-3.8.1 | DISA ASD STIG V-222587 APSC-DV-002330 CAT II)",
+    "goodExamples": "# tests/fixtures/personnel.csv, synthetic from a fixed seed\nTest User 001,SSN 000-00-0001,Clearance NONE",
+    "badExamples": "# tests/fixtures/personnel.csv\nJane Doe,SSN 123-45-6789,Clearance TS/SCI"
+  },
+  {
+    "name": "[Qodo-CERT-C] Scaled Pointer Arithmetic (CWE-468)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Scaled Pointer Arithmetic (CWE-468). NEVER add or subtract an already-scaled byte count to a typed pointer, because pointer arithmetic scales by the element size a second time. ALWAYS do the arithmetic in element counts, or cast to a character pointer first. (CWE-468 | CERT C ARR39-C Exact | DISA ASD STIG V-222648 APSC-DV-003170 CAT II)",
+    "goodExamples": "uint32_t *p = base;\np = p + n;                                  // element count\n// or, for a byte offset:\nchar *q = (char *)base + n * sizeof(uint32_t);",
+    "badExamples": "uint32_t *p = base;\np = p + n * sizeof(*p);   // scaled twice"
+  },
+  {
+    "name": "[Qodo-CERT-C] Pointer Subtraction Across Objects (CWE-469)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Pointer Subtraction Across Objects (CWE-469). NEVER subtract pointers or use relational comparisons (<, <=, >, >=) when they do not refer to the same array object, because the result is undefined. ALWAYS carry an explicit length rather than deriving one from a pointer difference. Equality and inequality identity checks (== and !=) between unrelated pointers are valid and are not prohibited. (CWE-469 | CERT C ARR36-C Exact | DISA ASD STIG V-222648 APSC-DV-003170 CAT II)",
+    "goodExamples": "// carry the length explicitly rather than deriving it\ntypedef struct { uint8_t *data; size_t len; } span_t;\nsize_t size = s.len;\nif (left != right) { /* valid identity check */ }",
+    "badExamples": "size_t size = end - start;   // end and start are separate allocations\nif (left < right) { /* invalid ordering across allocations */ }"
+  },
+  {
+    "name": "[Qodo-CERT-C] Operator Precedence (CWE-783)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Operator Precedence (CWE-783). NEVER rely on default precedence when mixing a bitwise operator with a comparison or a logical operator. ALWAYS parenthesise the intended grouping, because a shift or mask beside an equality test is the classic silent inversion. (CWE-783 | CERT C EXP00-C Exact | DISA ASD STIG V-222648 APSC-DV-003170 CAT II)",
+    "goodExamples": "if ((flags & MASK) == EXPECTED) { grant(); }",
+    "badExamples": "if (flags & MASK == EXPECTED) { grant(); }   // == binds tighter than &"
+  },
+  {
+    "name": "[Qodo-CERT-C] Incompatible Pointer Access (CWE-843)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Incompatible Pointer Access (CWE-843). NEVER read or write an object through a pointer to an incompatible type, because it breaks the effective type rules and the optimiser may reorder it. ALWAYS convert through a union or memcpy when reinterpreting bytes. (CWE-843 | CERT C EXP39-C Exact | DISA ASD STIG V-222612 APSC-DV-002590 CAT I)",
+    "goodExamples": "int bits = 0x3F800000;\nfloat f;\nmemcpy(&f, &bits, sizeof f);",
+    "badExamples": "int bits = 0x3F800000;\nfloat f = *(float *)&bits;   // incompatible type access"
+  },
+  {
+    "name": "[Qodo-CERT-C] Lossy Integer Conversion (CWE-197)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Lossy Integer Conversion (CWE-197). NEVER assign or cast an integer to a narrower or differently-signed type without first checking the value fits the destination range. ALWAYS validate before the conversion rather than inspecting the result afterwards. Raise nothing on a widening conversion between types of the same signedness. (CWE-197 | CERT C INT31-C | DISA ASD STIG V-222612 APSC-DV-002590 CAT I)",
+    "goodExamples": "long parsed = strtol(arg, &end, 10);\nif (parsed < 1 || parsed > 65535) return -1;\nuint16_t port = (uint16_t)parsed;",
+    "badExamples": "long parsed = strtol(arg, &end, 10);\nuint16_t port = (uint16_t)parsed;   // silently truncates"
+  },
+  {
+    "name": "[Qodo-CERT-C] Division and Remainder by Zero (CWE-369)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Division and Remainder by Zero (CWE-369). NEVER apply division or remainder to a divisor that an external input can drive to zero. ALWAYS test the divisor against zero on the path that reaches the operation. (CWE-369 | CERT C INT33-C Exact | DISA ASD STIG V-222656 APSC-DV-003235 CAT II)",
+    "goodExamples": "if (count == 0) return -EINVAL;\nunsigned rate = total / count;",
+    "badExamples": "unsigned rate = total / count;   // count comes from a request"
+  },
+  {
+    "name": "[Qodo-CERT-C] Free of Non-Heap Memory (CWE-590)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Free of Non-Heap Memory (CWE-590). NEVER pass a pointer to free or delete unless that exact pointer came from a matching allocator. ALWAYS pair each allocation with its own deallocator, and NEVER free a pointer into the middle of an allocation. (CWE-590 | CERT C MEM34-C Exact | DISA ASD STIG V-222648 APSC-DV-003170 CAT II)",
+    "goodExamples": "char *p = malloc(64);\nif (p == NULL) return -ENOMEM;\nfree(p);\np = NULL;",
+    "badExamples": "char buf[64];\nfree(buf);                     // not from an allocator\nchar *p = malloc(64);\nfree(p + 4);                   // interior pointer"
+  },
+  {
+    "name": "[Qodo-CERT-C] Non-Terminated String Handed Off (CWE-170)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Non-Terminated String Handed Off (CWE-170). NEVER pass a character sequence to a library function that expects a null-terminated string unless the terminator is guaranteed. ALWAYS write the terminator explicitly after any bounded copy, because strncpy does not add one when the source fills the destination. (CWE-170 | CERT C STR32-C Exact | DISA ASD STIG V-222612 APSC-DV-002590 CAT I)",
+    "goodExamples": "char dst[8];\nstrncpy(dst, src, sizeof dst - 1);\ndst[sizeof dst - 1] = '\\0';\nsize_t n = strlen(dst);",
+    "badExamples": "char dst[8];\nstrncpy(dst, src, sizeof dst);\nsize_t n = strlen(dst);   // may run off the end"
+  },
+  {
+    "name": "[Qodo-CERT-C] Use of a Closed Resource (CWE-910)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Use of a Closed Resource (CWE-910). NEVER read from or write to or reposition a file or socket handle after it has been closed. ALWAYS set the handle to an invalid sentinel at the close site so a later use is obvious. (CWE-910 | CERT C FIO46-C Exact | DISA ASD STIG V-222656 APSC-DV-003235 CAT II)",
+    "goodExamples": "fclose(f);\nf = NULL;\nif (f == NULL) return -EBADF;",
+    "badExamples": "fclose(f);\nfread(buf, 1, n, f);   // handle already closed"
+  },
+  {
+    "name": "[Qodo-CERT-C] Escaping Stack Address (CWE-562)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Escaping Stack Address (CWE-562). NEVER return or store beyond its scope the address of a local variable or a compound literal. ALWAYS return by value, or allocate with a lifetime that outlives the caller. (CWE-562 | CERT C DCL30-C | DISA ASD STIG V-222585 APSC-DV-002310 CAT I)",
+    "goodExamples": "void label(char *out, size_t cap) {\n    snprintf(out, cap, \"id\");   // caller owns the storage\n}",
+    "badExamples": "const char *label(void) {\n    char buf[32];\n    snprintf(buf, sizeof buf, \"id\");\n    return buf;   // address escapes the frame\n}"
   }
 ]
