@@ -406,8 +406,9 @@ so they show on the checks tab, and uploads the suite output with both mock-serv
 [`.github/ci-requirements.txt`](.github/ci-requirements.txt), so the schema case runs there instead
 of skipping the way it does on a machine without it.
 
-Everything the job executes is pinned: each action by the commit SHA its reviewed release points at,
-with the version kept in a trailing comment, and that requirements file by exact version and sha256
-installed with `pip --require-hashes`, which also forces the file to carry the whole dependency
-closure. An upstream release therefore cannot change what CI runs without a reviewed change here.
+The GitHub Actions used by the job are pinned to reviewed commit SHAs, with their release versions
+kept in trailing comments. Python package artifacts are also pinned by exact version and sha256 and
+installed with `pip --require-hashes`, which forces the requirements file to carry the whole
+dependency closure. The hosted runner image, its bundled tools (including Bash, jq, and curl), and
+the resolved Python 3.12 patch release remain managed by GitHub and may change independently.
 The file's header carries the `uv pip compile` line that regenerates it.
