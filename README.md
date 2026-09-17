@@ -402,5 +402,12 @@ Requires `python3` for the mock; no other dependencies.
 `main`, on pull requests targeting it, and on demand from the Actions tab. A failing run puts the
 `PASSED/FAILED` tally and every `FAIL:` line in the job summary, raises one annotation per failure
 so they show on the checks tab, and uploads the suite output with both mock-server logs as a
-`test-logs` artifact. The job also installs `jsonschema`, so the schema case runs there instead of
-skipping the way it does on a machine without it.
+`test-logs` artifact. The job installs `jsonschema` from
+[`.github/ci-requirements.txt`](.github/ci-requirements.txt), so the schema case runs there instead
+of skipping the way it does on a machine without it.
+
+Everything the job executes is pinned: each action by the commit SHA its reviewed release points at,
+with the version kept in a trailing comment, and that requirements file by exact version and sha256
+installed with `pip --require-hashes`, which also forces the file to carry the whole dependency
+closure. An upstream release therefore cannot change what CI runs without a reviewed change here.
+The file's header carries the `uv pip compile` line that regenerates it.
