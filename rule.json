@@ -1,0 +1,51 @@
+[
+  {
+    "name": "Never log secrets or tokens",
+    "category": "Security",
+    "severity": "error",
+    "content": "Do not pass credentials, API keys, or bearer tokens to a logger. Redact the value or log a stable identifier instead.",
+    "goodExamples": "logger.info(\"authenticated\", extra={\"key_id\": key.id})",
+    "badExamples": "logger.info(f\"authenticated with {api_key}\")"
+  },
+  {
+    "name": "Use the centralized logger instead of print",
+    "category": "Observability",
+    "severity": "warning",
+    "content": "Application code must emit diagnostics through the shared logger so output is structured and routed correctly. Reserve print() for CLI user-facing output.",
+    "goodExamples": "logger.info(\"worker started\", extra={\"worker_id\": worker.id})",
+    "badExamples": "print(\"worker started\", worker.id)"
+  },
+  {
+    "name": "Parameterize SQL queries",
+    "category": "Security",
+    "severity": "error",
+    "content": "Build SQL with bound parameters rather than string interpolation so user input cannot alter the query.",
+    "goodExamples": "cursor.execute(\"SELECT * FROM users WHERE id = %s\", (user_id,))",
+    "badExamples": "cursor.execute(f\"SELECT * FROM users WHERE id = {user_id}\")"
+  },
+  {
+    "name": "Set a timeout on outbound HTTP calls",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Every outbound HTTP request must set an explicit timeout so a slow upstream cannot exhaust the caller's connection pool.",
+    "goodExamples": "resp = await client.get(url, timeout=10.0)",
+    "badExamples": "resp = await client.get(url)"
+  },
+  {
+    "name": "Assert on behavior, not on call counts",
+    "category": "Testability",
+    "severity": "recommendation",
+    "content": "Prefer asserting the observable result of a unit over asserting that a collaborator was called. Mock-call assertions couple tests to the implementation.",
+    "goodExamples": "assert repo.get(user.id).status == \"active\"",
+    "badExamples": "repo.save.assert_called_once()"
+  },
+  {
+    "name": "Scope rule example - repo-local convention",
+    "category": "Architecture",
+    "severity": "warning",
+    "content": "This rule demonstrates the optional scopes field. It only applies inside the listed repository paths rather than the whole workspace.",
+    "goodExamples": "",
+    "badExamples": "",
+    "scopes": ["/qodo-se/qar-rule-upload/"]
+  }
+]

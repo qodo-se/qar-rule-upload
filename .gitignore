@@ -1,0 +1,4 @@
+.idea/
+.qodo/
+.DS_Store
+*.local.json

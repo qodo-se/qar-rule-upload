@@ -1,0 +1,45 @@
+[
+  {
+    "name": "Verify webhook signatures before processing the payload",
+    "category": "Security",
+    "severity": "error",
+    "content": "Compute the expected HMAC over the raw request body and compare it in constant time before the handler acts on any field. A payload that fails the check must be dropped with a 401, never logged in full.",
+    "goodExamples": "if not hmac.compare_digest(expected, header):\n    raise HTTPException(401, \"bad signature\")\npayload = json.loads(raw)",
+    "badExamples": "payload = json.loads(raw)\nif payload[\"signature\"] != expected:\n    log.warning(\"bad signature on %s\", raw)"
+  },
+  {
+    "name": "Bound every retry loop with a maximum attempt count",
+    "category": "Reliability",
+    "severity": "warning",
+    "content": "A retry loop must carry an explicit attempt ceiling and a backoff delay, so a permanently failing upstream cannot hold the caller open indefinitely.",
+    "goodExamples": "for attempt in range(1, MAX_ATTEMPTS + 1):\n    try:\n        return call()\n    except Transient:\n        time.sleep(attempt * BACKOFF)",
+    "badExamples": "while True:\n    try:\n        return call()\n    except Transient:\n        continue",
+    "scopes": ["/qodo-se/qar-rule-upload/"]
+  },
+  {
+    "name": "Name test cases after the behavior under test",
+    "category": "Testability",
+    "severity": "recommendation",
+    "content": "A test name should state the condition and the expected outcome, so a failure report is readable without opening the file.",
+    "goodExamples": "def test_missing_bearer_is_rejected_with_401():",
+    "badExamples": "def test_auth_2():",
+    "scopes": ["/qodo-se/qar-rule-upload/", "/qodo-se/qar-rule-upload/tests/", "/qodo-se/qodo-agent-runtime/"]
+  },
+  {
+    "name": "Report durations in milliseconds",
+    "category": "Observability",
+    "severity": "error",
+    "content": "Timing fields are named with their unit and emitted in milliseconds — never bare seconds or microseconds (µs) — so a dashboard can compare two services without a per-field conversion.",
+    "goodExamples": "logger.info(\"upstream call finished\", extra={\"duration_ms\": elapsed * 1000})",
+    "badExamples": ""
+  },
+  {
+    "name": "Keep a migration backward compatible for one release",
+    "category": "Architecture",
+    "severity": "warning",
+    "content": "A schema change ships in two steps: add the new shape and write to both, then drop the old shape a release later. The running version must tolerate the previous schema so a rollback does not lose writes.",
+    "goodExamples": "",
+    "badExamples": "",
+    "scopes": ["/qodo-se/qar-rule-upload/"]
+  }
+]
