@@ -288,16 +288,16 @@ The script itself does not read the schema — it validates with `jq` so it need
 
 ```
 endpoint  https://qodo-platform.qodo.ai/rules/v1/rule
-rules     9 from rule.json
+rules     31 from rule.json
 token     sk-liv...c123 (from $QODO_API_KEY)
 workspace header not sent - resolved from the token
 
-[1/9] [NGC-CWE] Format String (CWE-134) - created (ruleId 41)
-[2/9] [NGC-CWE] Stack Buffer Overflow (CWE-121) - created (ruleId 42)
-[3/9] [NGC-CWE] Double Free (CWE-415) - already exists, skipped
+[1/31] [Qodo-CWE] Format String (CWE-134) - created (ruleId 41)
+[2/31] [Qodo-CWE] Stack Buffer Overflow (CWE-121) - created (ruleId 42)
+[3/31] [Qodo-CWE] Double Free (CWE-415) - already exists, skipped
 ...
 
-done: created 8, already existed 1 (of 9)
+done: created 30, already existed 1 (of 31)
 ```
 
 ### Exit codes

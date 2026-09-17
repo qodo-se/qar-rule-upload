@@ -275,9 +275,10 @@ extra_rule = [e for e in log if e["body"]["name"] == "Extra field rule"]
 if not extra_rule: errs.append("extra-field rule never sent")
 elif set(extra_rule[0]["body"]) - allowed: errs.append("non-contract fields leaked to the server")
 
-# rule.json omits scopes entirely (universal scope "/"), so the key must be
-# absent from those bodies rather than sent empty.
-from_rule_json = [e for e in log if e["body"]["name"].startswith("[NGC-CWE]")]
+# rule.json omits scopes, so the key must be absent; names read from the file so a rename cannot void this.
+with open("rule.json") as fh:
+    rule_json_names = {r["name"] for r in json.load(fh)}
+from_rule_json = [e for e in log if e["body"]["name"] in rule_json_names]
 if not from_rule_json: errs.append("rule.json rules never sent")
 elif any("scopes" in e["body"] for e in from_rule_json):
     errs.append("scopes key sent for a rule that omits it")
