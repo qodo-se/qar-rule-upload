@@ -92,7 +92,7 @@
     "category": "Security",
     "severity": "error",
     "content": "Broken Cryptography (CWE-327). NEVER use MD5 or SHA-1 or DES or RC4 or ECB mode for any security purpose. NEVER draw a security-relevant value from rand or Math.random or a clock. ALWAYS use a FIPS-validated algorithm and a cryptographic random source. (CWE-327 | CWE-338 secondary | OWASP A04:2025 | DISA ASD STIG V-222555 APSC-DV-001860 CAT I)",
-    "goodExamples": "MessageDigest md = MessageDigest.getInstance(\"SHA-256\");\nbyte[] token = new byte[32];\nSecureRandom.getInstanceStrong().nextBytes(token);",
+    "goodExamples": "Security.addProvider(new BouncyCastleFipsProvider());\nMessageDigest md = MessageDigest.getInstance(\"SHA-256\", \"BCFIPS\");\nbyte[] token = new byte[32];\nSecureRandom.getInstance(\"DEFAULT\", \"BCFIPS\").nextBytes(token);\n// FIPS 140-3 certificate number recorded in the SSP",
     "badExamples": "MessageDigest md = MessageDigest.getInstance(\"MD5\");\nlong token = new Random().nextLong();"
   },
   {
@@ -132,7 +132,7 @@
     "category": "Security",
     "severity": "error",
     "content": "CUI in Transit (CWE-319). NEVER transmit CUI over an unauthenticated or unencrypted channel. ALWAYS require TLS 1.2 or higher with certificate verification left enabled. Raise nothing on a loopback or in-process call that never crosses a host boundary. (CWE-319 | CMMC SC.L2-3.13.8 | DISA ASD STIG V-222596 APSC-DV-002440 CAT I)",
-    "goodExamples": "requests.post(\"https://internal-api/cui\", json=payload,\n              verify=\"/etc/pki/ca-bundle.crt\")  # TLS 1.2+, verification on",
+    "goodExamples": "import ssl\nimport requests\nfrom requests.adapters import HTTPAdapter\n\nclass TLS12Adapter(HTTPAdapter):\n    def init_poolmanager(self, *args, **kwargs):\n        context = ssl.create_default_context(cafile=\"/etc/pki/ca-bundle.crt\")\n        context.minimum_version = ssl.TLSVersion.TLSv1_2\n        kwargs[\"ssl_context\"] = context\n        return super().init_poolmanager(*args, **kwargs)\n\nsession = requests.Session()\nsession.mount(\"https://\", TLS12Adapter())\nsession.post(\"https://internal-api/cui\", json=payload)  # TLS 1.2+, verification on",
     "badExamples": "requests.post(\"http://internal-api/cui\", json=payload, verify=False)"
   },
   {
@@ -179,9 +179,9 @@
     "name": "[Qodo-CERT-C] Pointer Subtraction Across Objects (CWE-469)",
     "category": "Security",
     "severity": "error",
-    "content": "Pointer Subtraction Across Objects (CWE-469). NEVER subtract or compare two pointers that do not refer to the same array or allocation, because the result is undefined. ALWAYS carry an explicit length rather than deriving one from a pointer difference. (CWE-469 | CERT C ARR36-C Exact | DISA ASD STIG V-222648 APSC-DV-003170 CAT II)",
-    "goodExamples": "// carry the length explicitly rather than deriving it\ntypedef struct { uint8_t *data; size_t len; } span_t;\nsize_t size = s.len;",
-    "badExamples": "size_t size = end - start;   // end and start are separate allocations"
+    "content": "Pointer Subtraction Across Objects (CWE-469). NEVER subtract pointers or use relational comparisons (<, <=, >, >=) when they do not refer to the same array object, because the result is undefined. ALWAYS carry an explicit length rather than deriving one from a pointer difference. Equality and inequality identity checks (== and !=) between unrelated pointers are valid and are not prohibited. (CWE-469 | CERT C ARR36-C Exact | DISA ASD STIG V-222648 APSC-DV-003170 CAT II)",
+    "goodExamples": "// carry the length explicitly rather than deriving it\ntypedef struct { uint8_t *data; size_t len; } span_t;\nsize_t size = s.len;\nif (left != right) { /* valid identity check */ }",
+    "badExamples": "size_t size = end - start;   // end and start are separate allocations\nif (left < right) { /* invalid ordering across allocations */ }"
   },
   {
     "name": "[Qodo-CERT-C] Operator Precedence (CWE-783)",
