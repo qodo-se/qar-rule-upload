@@ -1,0 +1,88 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push to the same ref makes the older run's answer irrelevant.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  run-tests:
+    name: run-tests.sh
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        # bash, jq and curl ship with the runner. jsonschema is what keeps the
+        # schema case from skipping itself, so the schema is checked against the
+        # script's own verdicts on every run rather than only on a dev machine.
+        run: |
+          jq --version
+          curl --version | head -1
+          python3 -m pip install --quiet jsonschema
+
+      - name: Run the suite
+        shell: bash
+        run: |
+          # pipefail, or tee would swallow the suite's exit code.
+          set -o pipefail
+          ./tests/run-tests.sh 2>&1 | tee "$RUNNER_TEMP/suite.log"
+
+      - name: Report the result
+        if: always()
+        shell: bash
+        run: |
+          log="$RUNNER_TEMP/suite.log"
+          mkdir -p test-logs
+          cp "$log" /tmp/mock.log /tmp/mock-fixture.log test-logs/ 2>/dev/null || true
+
+          # tail -1 exits 0 on empty input, so the fallback has to be on the value.
+          tally="$(grep -E '^  PASSED: ' "$log" | tail -1)"
+          {
+            echo "## tests/run-tests.sh"
+            echo
+            echo '```'
+            echo "${tally:-no tally - the suite died before its summary}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          grep -E '^  FAIL: ' "$log" > /tmp/failures.txt || exit 0
+
+          {
+            echo
+            echo '### Failures'
+            echo
+            echo '```'
+            cat /tmp/failures.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # One annotation per failure, so they land on the checks tab too.
+          sed 's/^  FAIL: //' /tmp/failures.txt | while IFS= read -r failure; do
+            echo "::error title=run-tests.sh::$failure"
+          done
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-logs
+          path: test-logs/
+          if-no-files-found: ignore
+          retention-days: 7

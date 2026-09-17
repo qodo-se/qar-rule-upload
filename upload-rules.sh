@@ -88,7 +88,8 @@ ${C_BOLD}RULE OBJECT${C_OFF} - mandatory fields only; snake_case aliases accepte
   goodExamples  string, may be "" but the key must be present  (alias: good_examples)
   badExamples   string, may be "" but the key must be present  (alias: bad_examples)
   scopes        OPTIONAL string[], max $MAX_SCOPES paths like "/owner/repo/";
-                omit for the universal scope "/"
+                omitting it (or []) means the universal scope "/" - the rule
+                applies to EVERY repository in the workspace
 
 ${C_BOLD}EXAMPLES${C_OFF}
   # 2 arguments - token from \$$DEFAULT_TOKEN_VAR
@@ -151,12 +152,16 @@ def canon:
   + keep("scopes");
 
 # A bare string scope is wrapped into a list, mirroring the platform client.
+# An empty list means the universal scope "/", which is exactly what omitting
+# the key means, so it is dropped instead of sent empty: a file can say "/" out
+# loud with "scopes": [] without the server seeing a different body for it.
 def wire:
   canon
   | {name, category, severity, content, goodExamples, badExamples}
   + (if has("scopes")
-     then {scopes: ((if (.scopes | type) == "string" then [.scopes] else .scopes end)
-                    | map(trim) | map(select(. != "")))}
+     then (((if (.scopes | type) == "string" then [.scopes] else .scopes end)
+             | map(trim) | map(select(. != "")))
+           | if length == 0 then {} else {scopes: .} end)
      else {} end);
 JQEOF
 
@@ -472,6 +477,18 @@ fi
 
 TOTAL="$(jq -r 'length' "$INPUT")"
 
+# A rule with no usable "scopes" entry goes up universally scoped, which the
+# banner warns about: "/" is every repository in the workspace, not a default
+# worth inheriting by accident.
+UNSCOPED="$(jq -r "$JQ_LIB"'
+  [ .[]
+    | (if has("scopes") | not then []
+       elif (.scopes | type) == "string" then [.scopes]
+       else .scopes end)
+    | map(select(isblank | not))
+    | select(length == 0)
+  ] | length' "$INPUT")"
+
 # ------------------------------------------------------------- curl setup ---
 
 CURL_CFG="$TMPDIR_RUN/curl.cfg"
@@ -518,6 +535,16 @@ transport_detail() {
 
 info "${C_BOLD}endpoint${C_OFF}  $ENDPOINT"
 info "${C_BOLD}rules${C_OFF}     $TOTAL from $SOURCE_LABEL"
+if [ "$UNSCOPED" -gt 0 ]; then
+  if [ "$UNSCOPED" -eq "$TOTAL" ]; then
+    if [ "$TOTAL" -eq 1 ]; then subject="the only rule"; else subject="all $TOTAL rules"; fi
+  else
+    subject="$UNSCOPED of $TOTAL rules"
+  fi
+  if [ "$UNSCOPED" -eq 1 ]; then verb="is"; else verb="are"; fi
+  info "${C_BOLD}scope${C_OFF}     ${C_YELLOW}$subject $verb universally scoped (\"/\") - EVERY repository in the workspace${C_OFF}"
+  info "          ${C_DIM}set \"scopes\": [\"/owner/repo/\"] per rule to narrow it${C_OFF}"
+fi
 if [ "$DRY_RUN" -eq 1 ]; then
   info "${C_BOLD}mode${C_OFF}      ${C_YELLOW}dry run - no requests will be sent${C_OFF}"
 else

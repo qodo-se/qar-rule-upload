@@ -1,5 +1,7 @@
 # qar-rule-upload
 
+[![tests](https://github.com/qodo-se/qar-rule-upload/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/qodo-se/qar-rule-upload/actions/workflows/tests.yml)
+
 Bulk-create Qodo rules from a JSON file.
 
 | Script | What it does |
@@ -202,8 +204,37 @@ A JSON array. Each object becomes one POST body.
 ]
 ```
 
-See [`rule.json`](rule.json) for a longer set, and [`rule.schema.json`](rule.schema.json) for a JSON
-Schema of the whole file.
+Two ready-made sets ship with the repo: [`rule.json`](rule.json), 31 security rules keyed to CWE,
+CERT C, OWASP and CMMC, and [`jama.json`](jama.json), 35 MISRA C and MISRA C++ rules for
+safety-critical embedded code. Upload either the same way:
+
+```bash
+export QODO_API_KEY=sk-...
+./upload-rules.sh https://qodo-platform.qodo.ai jama.json
+```
+
+**Both sets ship universally scoped, so as written every rule in them applies to every repository in
+the workspace.** `jama.json` says so out loud — every rule carries `"scopes": []`, the universal
+scope `/` — and `rule.json` says it by leaving the key off, which means the same thing. For
+`jama.json` that default is only suitable for a workspace dedicated to applicable C and C++ safety
+code; anywhere else it raises MISRA C and C++ guidance against the TypeScript, Python and Go
+repositories next door.
+
+So scope the set to the repositories or source directories it belongs to before uploading. The
+`"scopes": []` in each rule is the line to edit, and the script prints a `scope` warning in its
+banner whenever a file is about to go up universally scoped anyway:
+
+```bash
+# Scope every rule to one repository, then upload the scoped copy.
+jq '[.[] | .scopes = ["/owner/firmware/"]]' jama.json > jama.scoped.json
+./upload-rules.sh https://qodo-platform.qodo.ai jama.scoped.json
+```
+
+Narrowing it afterwards is not a re-upload: rule names are unique per workspace, so the scoped copy
+comes back `409` for every rule and the universal ones stay exactly as they were. Delete those in
+the workspace first, or scope the file before the first run.
+
+See [`rule.schema.json`](rule.schema.json) for a JSON Schema of the whole file.
 
 ### Fields
 
@@ -218,7 +249,7 @@ the required properties of the platform's `RuleCreateRequest`, and the bounds be
 | `content` | string | yes | Non-empty. What the rule checks or enforces, 1–3 sentences, imperative voice. |
 | `goodExamples` | string | yes | Code that **follows** the rule. May be `""`, but the key must be present. |
 | `badExamples` | string | yes | Code that **violates** the rule. May be `""`, but the key must be present. |
-| `scopes` | string[] | no | Repository paths the rule applies to, max **100**. Omit for the universal scope `/`. |
+| `scopes` | string[] | no | Repository paths the rule applies to, max **100**. Omitting it — or writing `[]`, which the script sends as the same body — means the universal scope `/`: **every repository in the workspace**. Set it unless the rule really is workspace-wide. |
 
 The platform also accepts `source`, `sourceType`, `sourceUri`, `suggestionType` and the structured
 `scopeElements` on a create. The script does not send them: a user key already records the creator
@@ -236,6 +267,15 @@ Exactly one of these three, lowercase on the wire. The script lowercases and tri
 | `warning` | Comply by default. |
 | `recommendation` | Apply when appropriate. |
 
+Severity is the weight the workspace puts on the rule, so it has to match what the rule's own text
+claims. A rule that rests on a "should" guideline — MISRA's Advisory category, for one — is a
+`recommendation` however forcefully it is worded, because `error` says the code cannot ship this
+way. [`jama.json`](jama.json) maps MISRA's categories that way: guidelines marked Mandatory or
+Required are `error`, Advisory ones are `recommendation`, and the process and compliance-artifact
+rules that no single guideline decides are `warning`. A project whose re-categorization plan
+upgrades an Advisory guideline can of course raise the severity to match — but then the rule should
+cite the upgrade rather than the category the guideline ships with.
+
 ### `category`
 
 The API accepts any non-empty string, so this is **not** rejected server-side the way `severity` is —
@@ -250,11 +290,18 @@ Title Case, as written. For the categories a specific workspace actually uses, c
 
 ### `scopes`
 
-Optional. Paths look like `/owner/repo/` or `/owner/repo/src/module/`, max 100 entries.
+Optional, but the default is the widest one there is: a rule with no `scopes` applies to **every
+repository in the workspace**, including the ones in languages the rule was never written for.
+Paths look like `/owner/repo/` or `/owner/repo/src/module/`, max 100 entries.
 
-- Omit the key entirely for the universal scope `/`.
-- `[]` is also accepted and the platform normalises it to `/`.
+- Omit the key entirely for the universal scope `/` — right for a rule that really is
+  workspace-wide, wrong for a language- or project-specific one.
+- `[]` means the same thing, written down. The script drops an empty list before sending, so the
+  server sees the same body either way; use it when the universal scope is a decision rather than
+  an oversight, the way [`jama.json`](jama.json) does.
 - Entries are trimmed; a bare string is accepted and wrapped into a list.
+- The script counts unscoped rules and warns in its banner before it sends anything. `--dry-run`
+  prints the same line without uploading.
 
 ### Conveniences the script applies
 
@@ -263,6 +310,7 @@ These exist so a hand-written file doesn't get bounced for cosmetic reasons:
 - `good_examples` / `bad_examples` are accepted as aliases for `goodExamples` / `badExamples`.
 - `severity` is lowercased and trimmed.
 - `scopes` entries are trimmed, and a bare string becomes a one-element list.
+- An empty `scopes` list is dropped, so `[]` and an omitted key produce the same request body.
 - Fields outside the contract (`state`, `ruleId`, `createdAt`, `sourceType`, …) are dropped with a
   note, so you can round-trip a `GET` response back into an upload without hand-editing it.
 
@@ -289,6 +337,8 @@ The script itself does not read the schema — it validates with `jq` so it need
 ```
 endpoint  https://qodo-platform.qodo.ai/rules/v1/rule
 rules     31 from rule.json
+scope     all 31 rules are universally scoped ("/") - EVERY repository in the workspace
+          set "scopes": ["/owner/repo/"] per rule to narrow it
 token     sk-liv...c123 (from $QODO_API_KEY)
 workspace header not sent - resolved from the token
 
@@ -345,3 +395,12 @@ fixture arrived.
 ```
 
 Requires `python3` for the mock; no other dependencies.
+
+### CI
+
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml) runs `run-tests.sh` on every push to
+`main`, on pull requests targeting it, and on demand from the Actions tab. A failing run puts the
+`PASSED/FAILED` tally and every `FAIL:` line in the job summary, raises one annotation per failure
+so they show on the checks tab, and uploads the suite output with both mock-server logs as a
+`test-logs` artifact. The job also installs `jsonschema`, so the schema case runs there instead of
+skipping the way it does on a machine without it.
