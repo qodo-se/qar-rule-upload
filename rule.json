@@ -171,9 +171,9 @@
     "name": "[Qodo-CERT-C] Scaled Pointer Arithmetic (CWE-468)",
     "category": "Security",
     "severity": "error",
-    "content": "Scaled Pointer Arithmetic (CWE-468). NEVER add or subtract an already-scaled byte count to a typed pointer, because pointer arithmetic scales by the element size a second time. ALWAYS do the arithmetic in element counts, or cast to a character pointer first. (CWE-468 | CERT C ARR39-C Exact | DISA ASD STIG V-222612 APSC-DV-002590 CAT I)",
+    "content": "Scaled Pointer Arithmetic (CWE-468). NEVER add or subtract an already-scaled byte count to a typed pointer and then dereference it for a write outside the target object's bounds, because pointer arithmetic scales by the element size a second time. ALWAYS do the arithmetic in element counts, or cast to a character pointer first. Raise nothing when the incorrectly scaled pointer is not dereferenced for an out-of-bounds write. (CWE-468 | CERT C ARR39-C Exact | DISA ASD STIG V-222612 APSC-DV-002590 CAT I)",
     "goodExamples": "uint32_t *p = base;\np = p + n;                                  // element count\n// or, for a byte offset:\nchar *q = (char *)base + n * sizeof(uint32_t);",
-    "badExamples": "uint32_t *p = base;\np = p + n * sizeof(*p);   // scaled twice"
+    "badExamples": "uint32_t values[4];\nsize_t n = 1;\nuint32_t *p = values + n * sizeof(*p);   // scaled twice\n*p = 0xdeadbeef;                          // write is outside values"
   },
   {
     "name": "[Qodo-CERT-C] Pointer Subtraction Across Objects (CWE-469)",
