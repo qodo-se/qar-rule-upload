@@ -59,7 +59,7 @@
     "name": "[Qodo-CWE] Unchecked Allocation Result (CWE-476)",
     "category": "Security",
     "severity": "error",
-    "content": "Unchecked Allocation Result (CWE-476). NEVER dereference a pointer returned by malloc or calloc or realloc in the same function that allocated it unless a null test precedes the dereference. Raise nothing when the pointer is returned to a caller rather than dereferenced. (CWE-476 | DISA ASD STIG V-222648 APSC-DV-003170 CAT II | CERT C EXP34-C Exact)",
+    "content": "Unchecked Allocation Result (CWE-476). NEVER dereference a pointer returned by malloc or calloc or realloc in the same function that allocated it unless a null test precedes the dereference. Raise nothing when the pointer is returned to a caller rather than dereferenced. (CWE-476 | DISA ASD STIG V-222656 APSC-DV-003235 CAT II | CERT C EXP34-C Exact)",
     "goodExamples": "char *parse_frame_header_checked(const char *raw, size_t len) {\n    if (raw == nullptr) return nullptr;\n    char *copy = (char *)malloc(len + 1);\n    if (copy == nullptr) return nullptr;\n    memcpy(copy, raw, len);\n    copy[len] = '\\0';\n    return copy;\n}\n\nvoid *reserve_scratch(size_t bytes) {\n    return malloc(bytes);\n}",
     "badExamples": "char *parse_frame_header(const char *raw, size_t len) {\n    char *copy = (char *)malloc(len + 1);\n    memcpy(copy, raw, len);\n    copy[len] = '\\0';\n    return copy;\n}"
   },
@@ -171,7 +171,7 @@
     "name": "[Qodo-CERT-C] Scaled Pointer Arithmetic (CWE-468)",
     "category": "Security",
     "severity": "error",
-    "content": "Scaled Pointer Arithmetic (CWE-468). NEVER add or subtract an already-scaled byte count to a typed pointer, because pointer arithmetic scales by the element size a second time. ALWAYS do the arithmetic in element counts, or cast to a character pointer first. (CWE-468 | CERT C ARR39-C Exact | DISA ASD STIG V-222648 APSC-DV-003170 CAT II)",
+    "content": "Scaled Pointer Arithmetic (CWE-468). NEVER add or subtract an already-scaled byte count to a typed pointer, because pointer arithmetic scales by the element size a second time. ALWAYS do the arithmetic in element counts, or cast to a character pointer first. (CWE-468 | CERT C ARR39-C Exact | DISA ASD STIG V-222612 APSC-DV-002590 CAT I)",
     "goodExamples": "uint32_t *p = base;\np = p + n;                                  // element count\n// or, for a byte offset:\nchar *q = (char *)base + n * sizeof(uint32_t);",
     "badExamples": "uint32_t *p = base;\np = p + n * sizeof(*p);   // scaled twice"
   },
