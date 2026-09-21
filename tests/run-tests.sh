@@ -47,6 +47,27 @@ check_eq() { # check_eq <desc> <expected> <actual>
   else FAIL=$((FAIL+1)); echo "  FAIL: $1 (wanted '$2', got '$3')"; fi
 }
 
+# A botched retry budget hangs rather than fails, and a suite that hangs with
+# it reports nothing. Runs that could loop get a deadline instead.
+run_bounded() { # run_bounded <seconds> <cmd...>; exits 124 on the deadline
+  local limit="$1"; shift
+  "$@" &
+  local pid=$! tenths=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$tenths" -ge "$((limit * 10))" ]; then
+      # TERM first: the script traps it and takes its temp dir with it.
+      kill -TERM "$pid" 2>/dev/null
+      sleep 1
+      kill -KILL "$pid" 2>/dev/null
+      wait "$pid" 2>/dev/null
+      return 124
+    fi
+    sleep 0.1
+    tenths=$((tenths+1))
+  done
+  wait "$pid"
+}
+
 banner() { echo; echo "=============== $* ==============="; }
 
 banner "T1  happy path, 2 args, token from \$QODO_API_KEY"
@@ -220,6 +241,65 @@ raise SystemExit(0 if v["ok"] else 1)
 PY
 check "every POST matched the fixture" 0 $?
 
+banner "T21 a collision lookup that never recovers stops after --retries"
+# The lookup's retry budget is spent by attempts, not by the number of the page
+# being fetched: a page number does not move while the same request is retried,
+# so counting it retries an early page forever and leaves a late page none.
+# Only a 409 reaches the lookup, so each rule has to be created first.
+cat > /tmp/qartest/wedged429.json <<'EOF'
+[{"name": "__lookup_429__", "category": "Quality", "severity": "error", "content": "c", "goodExamples": "", "badExamples": ""}]
+EOF
+cat > /tmp/qartest/wedged5xx.json <<'EOF'
+[{"name": "__lookup_5xx__", "category": "Quality", "severity": "error", "content": "c", "goodExamples": "", "badExamples": ""}]
+EOF
+QODO_API_KEY=sk-x ./upload-rules.sh "$BASE" /tmp/qartest/wedged429.json -q
+check "429-lookup rule created" 0 $?
+QODO_API_KEY=sk-x ./upload-rules.sh "$BASE" /tmp/qartest/wedged5xx.json -q
+check "5xx-lookup rule created" 0 $?
+
+# Re-uploading collides, and the lookup that resolves the collision never
+# answers 200. Both runs must end on their own; a deadline catches the loop.
+run_bounded 30 env QODO_API_KEY=sk-x ./upload-rules.sh "$BASE" \
+  /tmp/qartest/wedged429.json --retries 2 > /tmp/qartest/wedged429.out 2>&1
+check "persistent 429 lookup gave up" 2 $?
+run_bounded 30 env QODO_API_KEY=sk-x ./upload-rules.sh "$BASE" \
+  /tmp/qartest/wedged5xx.json --retries 1 > /tmp/qartest/wedged5xx.out 2>&1
+check "persistent 5xx lookup gave up" 2 $?
+
+# Giving up is only half of it: the status it gave up on has to reach the
+# report, or the operator is told the id did not resolve and not why.
+grep -q 'lookup returned HTTP 429' /tmp/qartest/wedged429.out
+check "429 named in the failure report" 0 $?
+grep -q 'lookup returned HTTP 503' /tmp/qartest/wedged5xx.out
+check "503 named in the failure report" 0 $?
+
+curl -s "$HOST/__lookuplog__" > /tmp/qartest/lookups.json
+python3 - <<'PY'
+import json
+log = json.load(open("/tmp/qartest/lookups.json"))
+errs = []
+for needle, retries in (("__lookup_429__", 2), ("__lookup_5xx__", 1)):
+    hits = [e for e in log if e["needle"] == needle]
+    if len(hits) != retries + 1:
+        errs.append(f"{needle}: {len(hits)} lookup(s), expected {retries + 1}"
+                    f" (1 attempt + --retries {retries})")
+    pages = sorted({e["page"] for e in hits})
+    if pages not in ([1], []):
+        errs.append(f"{needle}: retries walked off page 1, saw pages {pages}")
+
+# The successful lookups the earlier collision cases drove must still be here,
+# or this case proved nothing about the wedged ones.
+if not [e for e in log if e["status"] == 200]:
+    errs.append("no lookup ever succeeded; the 409 upsert path never ran")
+
+print(f"  {len(log)} lookups recorded")
+if errs:
+    for e in errs: print("  FAIL:", e)
+    raise SystemExit(1)
+print("  PASS: each wedged lookup stopped after exactly --retries retries")
+PY
+check "lookup retried exactly --retries times" 0 $?
+
 banner "T22 rule.schema.json reaches the same verdict as the script"
 # The schema is checked against the script rather than against a second copy of
 # the rules: every file the cases above uploaded must validate, and every file
@@ -227,6 +307,7 @@ banner "T22 rule.schema.json reaches the same verdict as the script"
 python3 tests/check-schema.py --schema rule.schema.json \
   --valid rule.json "$FIXTURE" /tmp/qartest/snake.json /tmp/qartest/extra.json \
           /tmp/qartest/dupe.json /tmp/qartest/boom.json \
+          /tmp/qartest/wedged429.json /tmp/qartest/wedged5xx.json \
   --invalid /tmp/qartest/bad.json /tmp/qartest/long.json /tmp/qartest/broken.json \
             /tmp/qartest/empty.json /tmp/qartest/obj.json
 SCHEMA_RC=$?

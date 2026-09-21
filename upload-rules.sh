@@ -578,19 +578,23 @@ post_rule() {
 get_rule_by_name() {
   # get_rule_by_name <name>; echoes the HTTP status, result lands in $LOOKUP.
   # Search every page and every state: non-admin uploads are pending.
-  local encoded page=1 status total
+  # The retry budget is per page and is spent by attempts, never by the page
+  # number: a page number does not change while the same request is retried, so
+  # counting it retries an early page forever and leaves a late page none.
+  local encoded page=1 attempt=0 wait_s status total
   encoded="$(printf '%s' "$1" | jq -sRr @uri)"
   : > "$LOOKUP"
   while :; do
+    attempt=$((attempt + 1))
     status="$(curl -K "$CURL_CFG" \
       -X GET "${ENDPOINT%/rule}/rules?name_contains=$encoded&page=$page&page_size=100" \
       -D "$HEADERS" -o "$LOOKUP" -w '%{http_code}' < /dev/null 2>"$CURL_ERR" || true)"
     case "$status" in
       000|429|5??)
-        if [ "$page" -le "$RETRIES" ]; then
-          wait_s="$(retry_delay "$page")"; sleep "$wait_s"; continue
+        if [ "$attempt" -le "$RETRIES" ]; then
+          wait_s="$(retry_delay "$attempt")"; sleep "$wait_s"; continue
         fi
-        return 0 ;;
+        printf '%s' "$status"; return 0 ;;
     esac
     [ "$status" = 200 ] || { printf '%s' "$status"; return 0; }
     total="$(jq -r '.totalCount // .total // 0' "$LOOKUP" 2>/dev/null || echo 0)"
@@ -599,6 +603,7 @@ get_rule_by_name() {
       printf '%s' "$status"; return 0
     fi
     page=$((page + 1))
+    attempt=0
   done
 }
 

@@ -88,7 +88,7 @@ command line, so it never appears in the process list.
 | `-n, --dry-run` | Validate and print each payload; send nothing. Works without a token. |
 | `-k, --keep-going` | Keep uploading after a failure. Default is to stop at the first one. |
 | `--path PATH` | Route appended to `base-url` (default `/rules/v1/rule`). `--path ''` appends nothing. |
-| `--retries N` | Retry attempts for `429` and `5xx` (default `2`). Honours `Retry-After`. Applies to uploads and collision updates. |
+| `--retries N` | Retry attempts for `429` and `5xx` (default `2`). Honours `Retry-After`. Applies to uploads, collision lookups and collision updates, and is budgeted per request. |
 | `--no-update` | Skip rules that already exist instead of updating them after a `409`. |
 | `--timeout SECONDS` | Per-request timeout (default `30`). |
 | `--insecure` | Skip TLS verification, for self-signed dev endpoints. |

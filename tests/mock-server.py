@@ -43,6 +43,12 @@ CATEGORIES = [
     "Observability",
 ]
 
+# Names whose lookup never recovers, for the retry-budget cases. Only a 409
+# reaches the lookup, so a rule has to be created before its lookup can wedge.
+# The 429 carries a Retry-After the script honours, which keeps its budget
+# cheap to spend; the 503 is left to the linear backoff.
+WEDGED_LOOKUPS = {"__lookup_429__": 429, "__lookup_5xx__": 503}
+
 expect_path = None
 expect = None  # fixture entries, or None when unarmed
 
@@ -53,6 +59,7 @@ next_id = [40]
 log = []
 metadata_log = []
 users_log = []
+lookup_log = []
 auth_failures = []
 
 
@@ -141,11 +148,13 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def _send(self, code, obj):
+    def _send(self, code, obj, extra_headers=None):
         raw = json.dumps(obj).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(raw)))
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(raw)
 
@@ -218,6 +227,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, updates)
         if self.path == "/__userslog__":
             return self._send(200, users_log)
+        if self.path == "/__lookuplog__":
+            return self._send(200, lookup_log)
         if self.path.split("?")[0] == RULES_LIST_PATH:
             return self._rules_list()
         if self.path == METADATA_PATH:
@@ -234,8 +245,17 @@ class Handler(BaseHTTPRequestHandler):
         from urllib.parse import urlparse, parse_qs, unquote
         q = parse_qs(urlparse(self.path).query)
         needle = unquote((q.get("name_contains") or [""])[0])
+        try:
+            page = int((q.get("page") or ["1"])[0])
+        except ValueError:
+            return self._send(422, {"detail": "page must be an integer"})
+        wedged = WEDGED_LOOKUPS.get(needle)
+        lookup_log.append({"needle": needle, "page": page, "status": wedged or 200})
+        if wedged:
+            headers = {"Retry-After": "1"} if wedged == 429 else None
+            return self._send(wedged, {"detail": f"lookup is wedged on {wedged}"}, headers)
         hits = [r for n, r in rules_by_name.items() if needle and needle in n]
-        return self._send(200, {"page": 1, "totalCount": len(hits), "rules": hits})
+        return self._send(200, {"page": page, "totalCount": len(hits), "rules": hits})
 
     def do_PUT(self):
         """PUT /rules/v1/rule/{id} - the update half of the upsert."""
