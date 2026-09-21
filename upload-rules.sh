@@ -577,12 +577,29 @@ post_rule() {
 
 get_rule_by_name() {
   # get_rule_by_name <name>; echoes the HTTP status, result lands in $LOOKUP.
-  # Names are unique workspace-wide, so at most one entry can match exactly.
-  local encoded
+  # Search every page and every state: non-admin uploads are pending.
+  local encoded page=1 status total
   encoded="$(printf '%s' "$1" | jq -sRr @uri)"
-  curl -K "$CURL_CFG" \
-    -X GET "${ENDPOINT%/rule}/rules?name_contains=$encoded&state=active&page=1&page_size=100" \
-    -o "$LOOKUP" -w '%{http_code}' < /dev/null 2>/dev/null || true
+  : > "$LOOKUP"
+  while :; do
+    status="$(curl -K "$CURL_CFG" \
+      -X GET "${ENDPOINT%/rule}/rules?name_contains=$encoded&page=$page&page_size=100" \
+      -D "$HEADERS" -o "$LOOKUP" -w '%{http_code}' < /dev/null 2>"$CURL_ERR" || true)"
+    case "$status" in
+      000|429|5??)
+        if [ "$page" -le "$RETRIES" ]; then
+          wait_s="$(retry_delay "$page")"; sleep "$wait_s"; continue
+        fi
+        return 0 ;;
+    esac
+    [ "$status" = 200 ] || { printf '%s' "$status"; return 0; }
+    total="$(jq -r '.totalCount // .total // 0' "$LOOKUP" 2>/dev/null || echo 0)"
+    if jq -e --arg n "$1" '(.rules // .items // []) | any(.name == $n)' "$LOOKUP" >/dev/null 2>&1 \
+       || [ "$((page * 100))" -ge "$total" ]; then
+      printf '%s' "$status"; return 0
+    fi
+    page=$((page + 1))
+  done
 }
 
 put_rule() {
@@ -685,14 +702,27 @@ while [ "$idx" -lt "$TOTAL" ]; do
         jq -r --arg n "$rule_name" \
           '[(.rules // .items // [])[] | select(.name == $n)][0]' "$LOOKUP" > "$LOOKUP.one"
         jq -s '.[0] as $w | .[1] as $l
-               | {name: $w.name, category: $w.category, severity: $w.severity,
+               | {name: $w.name, category: $w.category, severity: $l.severity,
                   content: $w.content,
                   goodExamples: ($w.goodExamples // ""),
                   badExamples: ($w.badExamples // ""),
                   state: ($l.state // "active"),
-                  scopes: ($w.scopes // $l.scopes // ["/"])}' \
+                  scopes: ($w.scopes // ["/"])}' \
           "$PAYLOAD" "$LOOKUP.one" > "$UPDATE"
-        put_status="$(put_rule "$existing_id" "$UPDATE")"
+        put_attempt=0
+        while :; do
+          put_attempt=$((put_attempt + 1))
+          put_status="$(put_rule "$existing_id" "$UPDATE")"
+          case "$put_status" in
+            200) break ;;
+            000|429|5??)
+              if [ "$put_attempt" -le "$RETRIES" ]; then
+                wait_s="$(retry_delay "$put_attempt")"; sleep "$wait_s"; continue
+              fi
+              break ;;
+            *) break ;;
+          esac
+        done
         if [ "$put_status" = "200" ]; then
           ok "$label - updated (ruleId $existing_id)"
           UPDATED=$((UPDATED + 1))
