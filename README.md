@@ -368,6 +368,52 @@ done: created 30, already existed 1 (of 31)
 | `401`, `403` | Stops immediately — these repeat for every rule, so continuing is pointless. |
 | `400`, `422` | Reported with the server's `detail` message. |
 
+## Severity policy for `rule.json`
+
+`severity` in this file is derived rather than chosen. Two published signals decide it,
+so a reviewer can re-derive every value from source instead of taking it on trust.
+
+```
+error    the rule's DISA anchor is CAT I
+         OR its CWE appears in the 2025 CWE Top 25
+warning  otherwise
+```
+
+| Signal | Edition | Where it is read from |
+| --- | --- | --- |
+| DISA CAT level | **ASD STIG V6R3** | `Rule/@severity` in the XCCDF, `high` maps to CAT I |
+| CWE Top 25 | **MITRE CWE 4.20, catalog View 1435** | `Weaknesses in the 2025 CWE Top 25 Most Dangerous Software Weaknesses`, 25 members |
+
+Current split is 20 `error` and 11 `warning` across 31 rules.
+
+### Why CAT alone is not enough
+
+`APSC-DV-003170` is CAT II because it is a **process** control, *"an application code
+review must be performed on the application."* Its CAT reflects the severity of the
+control, not of the defect a rule detects. Deriving severity from CAT alone demoted
+use-after-free, path traversal and unchecked allocation result to `warning`. View 1435
+membership restores exactly those three.
+
+### Documented exceptions
+
+One rule is set above what the two signals produce. Exceptions are listed here rather
+than applied silently, so the policy stays auditable.
+
+| Rule | Derived | Shipped | Why |
+| --- | --- | --- | --- |
+| `[Qodo-OWASP] Log Injection and Log Disclosure (CWE-117)` | `warning` | **`error`** | Its second clause covers credentials, tokens and full personal records. A warning may not block a secrets leak, and the confidentiality impact of that clause is not captured by either signal. |
+
+### Re-deriving it
+
+Both inputs are public downloads:
+
+- `cwe.mitre.org/data/xml/cwec_latest.xml.zip`, then read View `1435` members
+- `dl.dod.cyber.mil/wp-content/uploads/stigs/zip/U_ASD_V6R3_STIG.zip`, then read
+  `Group/Rule/@severity` for each `APSC-DV` id cited in a rule's `content`
+
+Every rule in `rule.json` carries its DISA control id in the `content` tail, so the
+mapping is checkable per rule without any extra metadata file.
+
 ## A note on rule state
 
 Creating a rule is not admin-gated. If the token belongs to a **non-admin**, the rule lands as a
