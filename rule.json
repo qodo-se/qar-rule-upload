@@ -114,7 +114,7 @@
   {
     "name": "[Qodo-OWASP] Log Injection and Log Disclosure (CWE-117)",
     "category": "Security",
-    "severity": "warning",
+    "severity": "error",
     "content": "Log Injection and Log Disclosure (CWE-117). NEVER write unsanitised external input into a log record, because an embedded newline forges a separate entry. NEVER log a credential or token or a full personal record. ALWAYS strip control characters before the write. (CWE-117 | CWE-532 secondary | OWASP A09:2025 | DISA ASD STIG V-222501 APSC-DV-001290 CAT II)",
     "goodExamples": "log.info(\"user={} action={}\", sanitize(userName), sanitize(action));\nlog.debug(\"correlationId={}\", correlationId);",
     "badExamples": "log.info(\"user=\" + userName + \" action=\" + action);\nlog.debug(\"token=\" + jwt);"
@@ -171,7 +171,7 @@
     "name": "[Qodo-CERT-C] Scaled Pointer Arithmetic (CWE-468)",
     "category": "Security",
     "severity": "error",
-    "content": "Scaled Pointer Arithmetic (CWE-468). NEVER add or subtract an already-scaled byte count to a typed pointer and then dereference it for a write outside the target object's bounds, because pointer arithmetic scales by the element size a second time. ALWAYS do the arithmetic in element counts, or cast to a character pointer first. Raise nothing when the incorrectly scaled pointer is not dereferenced for an out-of-bounds write. (CWE-468 | CERT C ARR39-C Exact | DISA ASD STIG V-222612 APSC-DV-002590 CAT I)",
+    "content": "Scaled Pointer Arithmetic (CWE-468). NEVER add or subtract an already-scaled byte count to a typed pointer and then dereference it for a write outside the target object's bounds, because pointer arithmetic scales by the element size a second time. ALWAYS do the arithmetic in element counts, or cast to a character pointer first. Raise nothing when the incorrectly scaled pointer is not dereferenced for an out-of-bounds write. (CWE-468 | CERT C ARR39-C (subset) | DISA ASD STIG V-222612 APSC-DV-002590 CAT I)",
     "goodExamples": "uint32_t *p = base;\np = p + n;                                  // element count\n// or, for a byte offset:\nchar *q = (char *)base + n * sizeof(uint32_t);",
     "badExamples": "uint32_t values[4];\nsize_t n = 1;\nuint32_t *p = values + n * sizeof(*p);   // scaled twice\n*p = 0xdeadbeef;                          // write is outside values"
   },

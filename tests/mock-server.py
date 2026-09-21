@@ -15,6 +15,7 @@ what the file says, in file order. A body that differs comes back as 422
 carrying the field-level diff, and GET /__verify__ reports the run's verdict.
 """
 import json
+import re
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -22,6 +23,7 @@ SEVERITIES = {"error", "warning", "recommendation"}
 REQUIRED = ["name", "category", "severity", "content", "goodExamples", "badExamples"]
 ALLOWED = set(REQUIRED) | {"scopes"}
 RULE_PATH = "/rules/v1/rule"
+RULES_LIST_PATH = "/rules/v1/rules"
 METADATA_PATH = "/rules/v1/metadata"
 # The principal-resolution GET that endpoint-validator.sh hunts for. Exactly one
 # path serves it, so a validator run has to actually find this one.
@@ -41,14 +43,23 @@ CATEGORIES = [
     "Observability",
 ]
 
+# Names whose lookup never recovers, for the retry-budget cases. Only a 409
+# reaches the lookup, so a rule has to be created before its lookup can wedge.
+# The 429 carries a Retry-After the script honours, which keeps its budget
+# cheap to spend; the 503 is left to the linear backoff.
+WEDGED_LOOKUPS = {"__lookup_429__": 429, "__lookup_5xx__": 503}
+
 expect_path = None
 expect = None  # fixture entries, or None when unarmed
 
 seen_names = set()
+rules_by_name = {}
+updates = []
 next_id = [40]
 log = []
 metadata_log = []
 users_log = []
+lookup_log = []
 auth_failures = []
 
 
@@ -137,11 +148,13 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def _send(self, code, obj):
+    def _send(self, code, obj, extra_headers=None):
         raw = json.dumps(obj).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(raw)))
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(raw)
 
@@ -200,6 +213,7 @@ class Handler(BaseHTTPRequestHandler):
 
         seen_names.add(body["name"])
         next_id[0] += 1
+        rules_by_name[body["name"]] = dict(body, ruleId=next_id[0], state="active")
         return self._send(201, {"ruleId": next_id[0]})
 
     def do_GET(self):
@@ -209,13 +223,63 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, verdict())
         if self.path == "/__metalog__":
             return self._send(200, metadata_log)
+        if self.path == "/__updates__":
+            return self._send(200, updates)
         if self.path == "/__userslog__":
             return self._send(200, users_log)
+        if self.path == "/__lookuplog__":
+            return self._send(200, lookup_log)
+        if self.path.split("?")[0] == RULES_LIST_PATH:
+            return self._rules_list()
         if self.path == METADATA_PATH:
             return self._metadata()
         if self.path == USERS_PATH:
             return self._users()
         return self._send(404, {"detail": "Not Found"})
+
+    def _rules_list(self):
+        """GET /rules/v1/rules - name lookup used by the 409 upsert path."""
+        auth = self.headers.get("Authorization", "")
+        if bearer_problem(auth):
+            return self._send(401, {"detail": bearer_problem(auth)})
+        from urllib.parse import urlparse, parse_qs, unquote
+        q = parse_qs(urlparse(self.path).query)
+        needle = unquote((q.get("name_contains") or [""])[0])
+        try:
+            page = int((q.get("page") or ["1"])[0])
+        except ValueError:
+            return self._send(422, {"detail": "page must be an integer"})
+        wedged = WEDGED_LOOKUPS.get(needle)
+        lookup_log.append({"needle": needle, "page": page, "status": wedged or 200})
+        if wedged:
+            headers = {"Retry-After": "1"} if wedged == 429 else None
+            return self._send(wedged, {"detail": f"lookup is wedged on {wedged}"}, headers)
+        hits = [r for n, r in rules_by_name.items() if needle and needle in n]
+        return self._send(200, {"page": page, "totalCount": len(hits), "rules": hits})
+
+    def do_PUT(self):
+        """PUT /rules/v1/rule/{id} - the update half of the upsert."""
+        auth = self.headers.get("Authorization", "")
+        if bearer_problem(auth):
+            return self._send(401, {"detail": bearer_problem(auth)})
+        m = re.match(re.escape(RULE_PATH) + r"/(\d+)$", self.path)
+        if not m:
+            return self._send(404, {"detail": "Not Found"})
+        rid = int(m.group(1))
+        n = int(self.headers.get("Content-Length") or 0)
+        try:
+            body = json.loads(self.rfile.read(n) or b"{}")
+        except ValueError as exc:
+            return self._send(400, {"detail": f"body is not valid JSON: {exc}"})
+        # PUT's contract: camelCase, seven mandatory fields including state.
+        missing = [k for k in ("name", "category", "severity", "content",
+                               "goodExamples", "badExamples", "state")
+                   if k not in body]
+        if missing:
+            return self._send(422, {"detail": [{"msg": "***"} for _ in missing]})
+        updates.append({"ruleId": rid, "body": body})
+        rules_by_name[body["name"]] = dict(body, ruleId=rid)
+        return self._send(200, dict(body, ruleId=rid))
 
     def _users(self):
         """GET /platform/v2/users - principal resolution, bearer only."""

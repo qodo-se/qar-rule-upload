@@ -70,6 +70,7 @@ ${C_BOLD}OPTIONS${C_OFF}
                           carry the workspace in the token itself.
   -n, --dry-run           Validate and print the payloads; send nothing.
   -k, --keep-going        Keep uploading after a rule fails (default: stop).
+      --no-update         On a 409 name collision, skip rather than update in place.
       --path PATH         Path appended to base-url (default: '$DEFAULT_RULE_PATH').
                           Pass --path '' when base-url is the full endpoint URL.
       --retries N         Retry attempts for 429 / 5xx responses (default: 2).
@@ -259,6 +260,7 @@ WORKSPACE_ID="${QODO_WORKSPACE_ID:-}"
 RULE_PATH="$DEFAULT_RULE_PATH"
 DRY_RUN=0
 KEEP_GOING=0
+NO_UPDATE=0
 RETRIES=2
 TIMEOUT=30
 INSECURE=0
@@ -279,6 +281,7 @@ while [ $# -gt 0 ]; do
     -h|--help) usage; exit 0 ;;
     -n|--dry-run) DRY_RUN=1; shift ;;
     -k|--keep-going) KEEP_GOING=1; shift ;;
+    --no-update) NO_UPDATE=1; shift ;;
     -q|--quiet) QUIET=1; shift ;;
     --insecure) INSECURE=1; shift ;;
     -w|--workspace-id)
@@ -509,6 +512,8 @@ CURL_CFG="$TMPDIR_RUN/curl.cfg"
 
 HEADERS="$TMPDIR_RUN/headers.txt"
 BODY="$TMPDIR_RUN/body.json"
+LOOKUP="$TMPDIR_RUN/lookup.json"
+UPDATE="$TMPDIR_RUN/update.json"
 CURL_ERR="$TMPDIR_RUN/curlerr.txt"
 
 server_detail() {
@@ -570,6 +575,48 @@ post_rule() {
     < /dev/null 2>"$CURL_ERR" || true
 }
 
+get_rule_by_name() {
+  # get_rule_by_name <name>; echoes the HTTP status, result lands in $LOOKUP.
+  # Search every page and every state: non-admin uploads are pending.
+  # The retry budget is per page and is spent by attempts, never by the page
+  # number: a page number does not change while the same request is retried, so
+  # counting it retries an early page forever and leaves a late page none.
+  local encoded page=1 attempt=0 wait_s status total
+  encoded="$(printf '%s' "$1" | jq -sRr @uri)"
+  : > "$LOOKUP"
+  while :; do
+    attempt=$((attempt + 1))
+    status="$(curl -K "$CURL_CFG" \
+      -X GET "${ENDPOINT%/rule}/rules?name_contains=$encoded&page=$page&page_size=100" \
+      -D "$HEADERS" -o "$LOOKUP" -w '%{http_code}' < /dev/null 2>"$CURL_ERR" || true)"
+    case "$status" in
+      000|429|5??)
+        if [ "$attempt" -le "$RETRIES" ]; then
+          wait_s="$(retry_delay "$attempt")"; sleep "$wait_s"; continue
+        fi
+        printf '%s' "$status"; return 0 ;;
+    esac
+    [ "$status" = 200 ] || { printf '%s' "$status"; return 0; }
+    total="$(jq -r '.totalCount // .total // 0' "$LOOKUP" 2>/dev/null || echo 0)"
+    if jq -e --arg n "$1" '(.rules // .items // []) | any(.name == $n)' "$LOOKUP" >/dev/null 2>&1 \
+       || [ "$((page * 100))" -ge "$total" ]; then
+      printf '%s' "$status"; return 0
+    fi
+    page=$((page + 1))
+    attempt=0
+  done
+}
+
+put_rule() {
+  # put_rule <rule-id> <payload-file>; echoes the HTTP status.
+  # PUT takes camelCase and seven mandatory fields including `state`, and
+  # `scopes` MUST be sent: omitting it silently rescopes the rule to "/".
+  curl -K "$CURL_CFG" \
+    -X PUT "$ENDPOINT/$1" \
+    --data-binary "@$2" -D "$HEADERS" -o "$BODY" \
+    -w '%{http_code}' < /dev/null 2>"$CURL_ERR" || true
+}
+
 retry_delay() {
   # Honour Retry-After when the server sends one, else back off linearly.
   local attempt="$1" hinted
@@ -583,6 +630,7 @@ retry_delay() {
 }
 
 CREATED=0
+UPDATED=0
 EXISTED=0
 FAILED=0
 FAILED_NAMES=""
@@ -634,8 +682,59 @@ while [ "$idx" -lt "$TOTAL" ]; do
         CREATED=$((CREATED + 1))
         break ;;
       409)
-        warn "$label - already exists, skipped"
-        EXISTED=$((EXISTED + 1))
+        # A name collision means the rule is already in the workspace, NOT that
+        # the upload succeeded. Treating it as success pins existing workspaces
+        # to whatever severity and content they were first loaded with, so a
+        # retuned pack never reaches them. Resolve the id and update in place.
+        if [ "$NO_UPDATE" -eq 1 ]; then
+          warn "$label - already exists, skipped (--no-update)"
+          EXISTED=$((EXISTED + 1))
+          break
+        fi
+        lookup_status="$(get_rule_by_name "$rule_name")"
+        existing_id=""
+        if [ "$lookup_status" = "200" ]; then
+          existing_id="$(jq -r --arg n "$rule_name" \
+            '[(.rules // .items // [])[] | select(.name == $n)][0].ruleId // empty' \
+            "$LOOKUP" 2>/dev/null || true)"
+        fi
+        if [ -z "$existing_id" ]; then
+          err "$label - HTTP 409 but the rule id did not resolve by name"
+          err "  lookup returned HTTP $lookup_status; fix by hand or re-run with --no-update"
+          record_failure "$rule_name" "409, id unresolved"
+          break
+        fi
+        jq -r --arg n "$rule_name" \
+          '[(.rules // .items // [])[] | select(.name == $n)][0]' "$LOOKUP" > "$LOOKUP.one"
+        jq -s '.[0] as $w | .[1] as $l
+               | {name: $w.name, category: $w.category, severity: $l.severity,
+                  content: $w.content,
+                  goodExamples: ($w.goodExamples // ""),
+                  badExamples: ($w.badExamples // ""),
+                  state: ($l.state // "active"),
+                  scopes: ($w.scopes // ["/"])}' \
+          "$PAYLOAD" "$LOOKUP.one" > "$UPDATE"
+        put_attempt=0
+        while :; do
+          put_attempt=$((put_attempt + 1))
+          put_status="$(put_rule "$existing_id" "$UPDATE")"
+          case "$put_status" in
+            200) break ;;
+            000|429|5??)
+              if [ "$put_attempt" -le "$RETRIES" ]; then
+                wait_s="$(retry_delay "$put_attempt")"; sleep "$wait_s"; continue
+              fi
+              break ;;
+            *) break ;;
+          esac
+        done
+        if [ "$put_status" = "200" ]; then
+          ok "$label - updated (ruleId $existing_id)"
+          UPDATED=$((UPDATED + 1))
+        else
+          err "$label - HTTP $put_status on update: $(server_detail)"
+          record_failure "$rule_name" "HTTP $put_status on update"
+        fi
         break ;;
       429|5??)
         if [ "$attempt" -le "$RETRIES" ]; then
@@ -688,8 +787,9 @@ if [ "$DRY_RUN" -eq 1 ]; then
   exit 0
 fi
 
-SKIPPED=$((TOTAL - CREATED - EXISTED - FAILED))
+SKIPPED=$((TOTAL - CREATED - UPDATED - EXISTED - FAILED))
 summary="created $CREATED"
+if [ "$UPDATED" -gt 0 ]; then summary="$summary, updated $UPDATED"; fi
 if [ "$EXISTED" -gt 0 ]; then summary="$summary, already existed $EXISTED"; fi
 if [ "$FAILED" -gt 0 ]; then summary="$summary, failed $FAILED"; fi
 if [ "$SKIPPED" -gt 0 ]; then summary="$summary, not attempted $SKIPPED"; fi
