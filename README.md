@@ -88,7 +88,8 @@ command line, so it never appears in the process list.
 | `-n, --dry-run` | Validate and print each payload; send nothing. Works without a token. |
 | `-k, --keep-going` | Keep uploading after a failure. Default is to stop at the first one. |
 | `--path PATH` | Route appended to `base-url` (default `/rules/v1/rule`). `--path ''` appends nothing. |
-| `--retries N` | Retry attempts for `429` and `5xx` (default `2`). Honours `Retry-After`. |
+| `--retries N` | Retry attempts for `429` and `5xx` (default `2`). Honours `Retry-After`. Applies to uploads and collision updates. |
+| `--no-update` | Skip rules that already exist instead of updating them after a `409`. |
 | `--timeout SECONDS` | Per-request timeout (default `30`). |
 | `--insecure` | Skip TLS verification, for self-signed dev endpoints. |
 | `-q, --quiet` | Only print failures and the final summary. |
@@ -344,17 +345,17 @@ workspace header not sent - resolved from the token
 
 [1/31] [Qodo-CWE] Format String (CWE-134) - created (ruleId 41)
 [2/31] [Qodo-CWE] Stack Buffer Overflow (CWE-121) - created (ruleId 42)
-[3/31] [Qodo-CWE] Double Free (CWE-415) - already exists, skipped
+[3/31] [Qodo-CWE] Double Free (CWE-415) - updated (ruleId 43)
 ...
 
-done: created 30, already existed 1 (of 31)
+done: created 30, updated 1 (of 31)
 ```
 
 ### Exit codes
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Every rule was created or already existed. |
+| `0` | Every rule was created, updated, or skipped with `--no-update`. |
 | `1` | Usage or validation error. **Nothing was uploaded.** |
 | `2` | One or more uploads failed. |
 
@@ -363,7 +364,7 @@ done: created 30, already existed 1 (of 31)
 | Status | Behaviour |
 | --- | --- |
 | `201` | Created. The returned `ruleId` is printed. |
-| `409` | Name already exists. Counted as "already existed", not a failure. |
+| `409` | Name already exists. The matching rule is looked up and updated by default; use `--no-update` to skip it. |
 | `429`, `5xx` | Retried up to `--retries` times, honouring `Retry-After`. |
 | `401`, `403` | Stops immediately — these repeat for every rule, so continuing is pointless. |
 | `400`, `422` | Reported with the server's `detail` message. |
@@ -407,7 +408,7 @@ than applied silently, so the policy stays auditable.
 
 Both inputs are public downloads:
 
-- `cwe.mitre.org/data/xml/cwec_latest.xml.zip`, then read View `1435` members
+- [`cwec_v4.20.xml.zip`](https://cwe.mitre.org/data/xml/cwec_v4.20.xml.zip), then read View `1435` members
 - `dl.dod.cyber.mil/wp-content/uploads/stigs/zip/U_ASD_V6R3_STIG.zip`, then read
   `Group/Rule/@severity` for each `APSC-DV` id cited in a rule's `content`
 
