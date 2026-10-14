@@ -235,17 +235,17 @@ Narrowing it afterwards is not a re-upload: rule names are unique per workspace,
 comes back `409` for every rule and the universal ones stay exactly as they were. Delete those in
 the workspace first, or scope the file before the first run.
 
-**Don't scope both sets onto the same repository.** Three `rule.json` rules cover the same defect as a
+**Don't scope both sets onto the same repository.** Three `rule.json` rules overlap a
 `jama.json` rule, so a repository that gets both sets gets two findings on one line:
 
 | `rule.json` | `jama.json` | Overlap |
 | --- | --- | --- |
 | Division and Remainder by Zero (CWE-369) | Division or Remainder by Zero (Rule 1.2) | Full. The MISRA rule covers every path |
-| Incompatible Pointer Access (CWE-843) | Unsafe Pointer Conversion (Rule 11.x) | Full. The MISRA rule covers every pointer cast |
+| Incompatible Pointer Access (CWE-843) | Unsafe Pointer Conversion (Rule 11.x) | Partial. Only `rule.json` checks an incompatible access through an implicit `void *` conversion |
 | Lossy Integer Conversion (CWE-197) | Implicit Conversion Changing Signedness or Width | Partial. Only `rule.json` checks an explicit narrowing cast |
 
 Scope `jama.json` to the MISRA repositories and `rule.json` to the rest. Where one repository needs
-both, delete the first two `rule.json` rules from that upload and keep Lossy Integer Conversion.
+both, delete Division and Remainder by Zero from the `rule.json` upload. Keep the other two.
 
 **Upgrading a workspace that already has `jama.json`.** The script creates rules and updates them by
 exact name. It never deletes, so a rule that left the file stays active in the workspace. Delete these
