@@ -206,7 +206,7 @@ A JSON array. Each object becomes one POST body.
 ```
 
 Two ready-made sets ship with the repo: [`rule.json`](rule.json), 31 security rules keyed to CWE,
-CERT C, OWASP and CMMC, and [`jama.json`](jama.json), 35 MISRA C and MISRA C++ rules for
+CERT C, OWASP and CMMC, and [`jama.json`](jama.json), 28 MISRA C and MISRA C++ rules for
 safety-critical embedded code. Upload either the same way:
 
 ```bash
@@ -234,6 +234,19 @@ jq '[.[] | .scopes = ["/owner/firmware/"]]' jama.json > jama.scoped.json
 Narrowing it afterwards is not a re-upload: rule names are unique per workspace, so the scoped copy
 comes back `409` for every rule and the universal ones stay exactly as they were. Delete those in
 the workspace first, or scope the file before the first run.
+
+**Don't scope both sets onto the same repository.** Three `rule.json` rules restate a `jama.json`
+rule for the same defect, so a repository that gets both sets gets two findings on one line:
+
+| `rule.json` | `jama.json` |
+| --- | --- |
+| Division and Remainder by Zero (CWE-369) | Division or Remainder by Zero (Rule 1.2) |
+| Lossy Integer Conversion (CWE-197) | Implicit Conversion Changing Signedness or Width |
+| Incompatible Pointer Access (CWE-843) | Unsafe Pointer Conversion (Rule 11.x) |
+
+The `jama.json` rule is the broader one in each pair. Scope `jama.json` to the MISRA repositories and
+`rule.json` to the rest. Where one repository needs both, delete the three `rule.json`
+rules from that upload.
 
 See [`rule.schema.json`](rule.schema.json) for a JSON Schema of the whole file.
 

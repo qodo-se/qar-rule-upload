@@ -123,9 +123,9 @@
     "name": "[Qodo-CMMC] FIPS-Validated Cryptography for CUI (CWE-1240)",
     "category": "Security",
     "severity": "warning",
-    "content": "FIPS-Validated Cryptography for CUI (CWE-1240). NEVER protect CUI with a cryptographic implementation that is not FIPS-validated, because a correct algorithm from an unvalidated module still fails the requirement. ALWAYS call through a validated module and record its certificate number. Raise nothing when the call already targets a validated provider. (CWE-1240 | CMMC SC.L2-3.13.11 | DISA ASD STIG V-222570 APSC-DV-002020 CAT II)",
-    "goodExamples": "Security.addProvider(new BouncyCastleFipsProvider());\nCipher c = Cipher.getInstance(\"AES/GCM/NoPadding\", \"BCFIPS\");\n// FIPS 140-3 certificate number recorded in the SSP",
-    "badExamples": "Cipher c = Cipher.getInstance(\"AES/GCM/NoPadding\");  // default provider, not validated"
+    "content": "FIPS-Validated Cryptography (CWE-1240). NEVER call Cipher.getInstance or KeyGenerator.getInstance or MessageDigest.getInstance or SecureRandom.getInstance or KeyPairGenerator.getInstance without an explicit provider argument. NEVER construct a crypto primitive from a language default provider when a validated provider is configured in the same file. ALWAYS pass the validated provider name as the second argument, as in Cipher.getInstance(\"AES/GCM/NoPadding\", \"BCFIPS\"). Raise nothing when a provider argument is already present. Raise nothing about which algorithm or mode was chosen, because algorithm strength is CWE-327 and not this rule. Raise nothing on a hash used for a non-security purpose such as a cache key or an ETag. (CWE-1240 | CMMC SC.L2-3.13.11 | DISA ASD STIG V-222570 APSC-DV-002020 CAT II)",
+    "goodExamples": "Security.addProvider(new BouncyCastleFipsProvider());\nCipher c = Cipher.getInstance(\"AES/GCM/NoPadding\", \"BCFIPS\");\nMessageDigest md = MessageDigest.getInstance(\"SHA-256\", \"BCFIPS\");",
+    "badExamples": "Cipher c = Cipher.getInstance(\"AES/GCM/NoPadding\");\nKeyGenerator kg = KeyGenerator.getInstance(\"AES\");"
   },
   {
     "name": "[Qodo-CMMC] CUI in Transit (CWE-319)",
@@ -139,9 +139,9 @@
     "name": "[Qodo-CMMC] Credential Protection (CWE-256)",
     "category": "Security",
     "severity": "error",
-    "content": "Credential Protection (CWE-256). NEVER store or transmit a password in plaintext or under a reversible encoding. ALWAYS store a salted hash from a deliberately slow function such as Argon2id or scrypt or PBKDF2, and ALWAYS send credentials only over an encrypted channel. (CWE-256 | CWE-916 secondary | CMMC IA.L2-3.5.10 | DISA ASD STIG V-222542 APSC-DV-001740 CAT I | V-222543 APSC-DV-001750 CAT I)",
-    "goodExamples": "from argon2 import PasswordHasher\nstored = PasswordHasher().hash(password)  # salted, deliberately slow",
-    "badExamples": "stored = hashlib.md5(password.encode()).hexdigest()"
+    "content": "Password Storage and Comparison (CWE-256). NEVER write a password or a password digest to a database or a file unless the value was produced by Argon2id or scrypt or bcrypt or PBKDF2. NEVER compare a submitted password against a stored one with ==, equals, strcmp, or any non-constant-time equality. ALWAYS call the key-derivation library's own verify function. Raise nothing when the credential is a literal written in source, because a literal secret is CWE-798 and not this rule. Raise nothing about the strength of a hash used for any purpose other than password storage, because that is CWE-327 and not this rule. Raise nothing on a token or session identifier that was generated rather than supplied by a user. (CWE-256 | CWE-916 secondary | CMMC IA.L2-3.5.10 | DISA ASD STIG V-222542 APSC-DV-001740 CAT I)",
+    "goodExamples": "from argon2 import PasswordHasher\nph = PasswordHasher()\nstored = ph.hash(password)\nph.verify(stored, submitted)",
+    "badExamples": "stored = hashlib.md5(password.encode()).hexdigest()\nif submitted_hash == row[\"password_hash\"]: return True"
   },
   {
     "name": "[Qodo-CMMC] Least Privilege in Code (CWE-250)",
@@ -155,9 +155,9 @@
     "name": "[Qodo-CMMC] Audit Accountability (CWE-778)",
     "category": "Security",
     "severity": "warning",
-    "content": "Audit Accountability (CWE-778). NEVER record a security-relevant action without the identity of the individual or service principal that caused it. ALWAYS log the actor and the action and the outcome and a UTC timestamp. Raise nothing on a debug or trace statement that carries no security relevance. (CWE-778 | CMMC AU.L2-3.3.2 | DISA ASD STIG V-222438 APSC-DV-000590 CAT II)",
-    "goodExamples": "log.info(\"actor={} action=delete target={} outcome=ok ts={}\",\n         principal.getName(), recordId, Instant.now());",
-    "badExamples": "log.info(\"record deleted\");"
+    "content": "Missing Actor in an Audit Log Call (CWE-778). NEVER emit a log call that reports a completed delete, create, update, grant, revoke, disable, enable, password change, permission change, role change, login, or logout without an actor identifier passed in the same call. ALWAYS pass the actor and the action and the outcome and a UTC timestamp as fields of that call. Raise only on a log call. Raise nothing on a log call at debug or trace level. Raise nothing on a log call that does not report one of the listed actions, which includes a message about buffers, parsing, formatting, allocation, connections, or retries. Raise nothing about the safety of the data being logged, because untrusted data reaching a log is CWE-117 and not this rule. Raise nothing about whether the log is later stored or retained. (CWE-778 | CMMC AU.L2-3.3.2 | DISA ASD STIG V-222438 APSC-DV-000590 CAT II)",
+    "goodExamples": "log.info(\"actor={} action=delete target={} outcome=ok ts={}\",\n         principal.getName(), recordId, Instant.now());\nlog.debug(\"parsed {} rows\", n);",
+    "badExamples": "log.info(\"record deleted\");\nlog.info(\"permissions updated for project\");"
   },
   {
     "name": "[Qodo-CMMC] CUI in Source and Fixtures (CWE-540)",
