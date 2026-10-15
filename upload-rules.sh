@@ -712,7 +712,7 @@ while [ "$idx" -lt "$TOTAL" ]; do
                   goodExamples: ($w.goodExamples // ""),
                   badExamples: ($w.badExamples // ""),
                   state: ($l.state // "active"),
-                  scopes: ($w.scopes // ["/"])}' \
+                  scopes: (if (($w.scopes // []) | length) > 0 then $w.scopes else ($l.scopes // ["/"]) end)}' \
           "$PAYLOAD" "$LOOKUP.one" > "$UPDATE"
         put_attempt=0
         while :; do
