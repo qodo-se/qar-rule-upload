@@ -216,7 +216,7 @@
     "name": "[Qodo-CWE] Sensitive Data Left in Memory or Output (CWE-226)",
     "category": "Security",
     "severity": "warning",
-    "content": "Sensitive Data Left in Memory or Output (CWE-226). NEVER free or realloc a buffer that held a password or key without first clearing it with SecureZeroMemory or explicit_bzero or memset_s. NEVER keep a password or key in memory that VirtualLock or mlock has not locked. NEVER print a password or key to a log or stdout or stderr. ALWAYS clear with a function the compiler cannot remove. Raise nothing unless the diff names or documents the value as a password or key or secret. (CWE-226 | CWE-244 CWE-591 CWE-534 CWE-535 secondary | DISA ASD STIG V-222592 APSC-DV-002380 CAT II | V-222444 APSC-DV-000650 CAT II | CERT C MEM03-C | CERT C MEM06-C)",
+    "content": "Sensitive Data Left in Memory or Output (CWE-226). NEVER free or realloc a buffer that held a password or key without first clearing it with SecureZeroMemory or explicit_bzero or memset_s. NEVER print a password or key to a log or stdout or stderr. ALWAYS clear with a function the compiler cannot remove. Raise nothing unless the diff names or documents the value as a password or key or secret. (CWE-226 | CWE-244 CWE-591 CWE-534 CWE-535 secondary | DISA ASD STIG V-222592 APSC-DV-002380 CAT II | V-222444 APSC-DV-000650 CAT II | CERT C MEM03-C | CERT C MEM06-C)",
     "goodExamples": "char *password = (char *)malloc(100);\nif (password == NULL) { return; }\nread_password(password, 100);\nuse_password(password);\nSecureZeroMemory(password, 100);\nfree(password);",
     "badExamples": "char *password = (char *)malloc(100);\nif (password == NULL) { return; }\nread_password(password, 100);\nuse_password(password);\nprintLine(password);\nfree(password);"
   },
@@ -240,8 +240,11 @@
     "name": "[Qodo-CWE] Insecure Temporary File or TOCTOU (CWE-377)",
     "category": "Security",
     "severity": "warning",
-    "content": "Insecure Temporary File or TOCTOU (CWE-377). NEVER create a temporary file by opening a name that tmpnam or tempnam or mktemp or _mktemp returned. NEVER check a path with access or stat and then open it by the same name. ALWAYS create with mkstemp, or open with O_CREAT and O_EXCL, and then use only the descriptor you opened. Raise nothing when the open already passes O_EXCL or uses mkstemp. (CWE-377 | CWE-367 secondary | DISA ASD STIG V-222567 APSC-DV-001995 CAT II | CERT C FIO01-C | CERT C CON33-C Imprecise)",
+    "content": "Insecure Temporary File or TOCTOU (CWE-377). NEVER create a temporary file by opening a name that tmpnam or tempnam or mktemp or _mktemp returned. NEVER check a path with access or stat and then open it by the same name. ALWAYS create with mkstemp, or open with O_CREAT and O_EXCL, and then use only the descriptor you opened. Raise nothing when the open passes both O_CREAT and O_EXCL or uses mkstemp. (CWE-377 | CWE-367 secondary | DISA ASD STIG V-222567 APSC-DV-001995 CAT II | CERT C FIO01-C | CERT C CON33-C Imprecise)",
     "goodExamples": "char name[] = \"/tmp/fileXXXXXX\";\nint fd = mkstemp(name);\nif (fd == -1) { return; }\nwrite(fd, \"x\", 1);\nclose(fd);",
     "badExamples": "char *name = tmpnam(NULL);\nFILE *f = fopen(name, \"w+\");\nif (access(path, W_OK) == 0) { f = fopen(path, \"w\"); }"
+  }
+]
+f = fopen(name, \"w+\");\nif (access(path, W_OK) == 0) { f = fopen(path, \"w\"); }"
   }
 ]
