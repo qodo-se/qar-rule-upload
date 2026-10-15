@@ -206,7 +206,7 @@ A JSON array. Each object becomes one POST body.
 ```
 
 Two ready-made sets ship with the repo: [`rule.json`](rule.json), 31 security rules keyed to CWE,
-CERT C, OWASP and CMMC, and [`jama.json`](jama.json), 29 MISRA C and MISRA C++ rules for
+CERT C, OWASP and CMMC, and [`jama.json`](jama.json), 35 MISRA C and MISRA C++ rules for
 safety-critical embedded code. Upload either the same way:
 
 ```bash
@@ -246,20 +246,6 @@ the workspace first, or scope the file before the first run.
 
 Scope `jama.json` to the MISRA repositories and `rule.json` to the rest. Where one repository needs
 both, delete Division and Remainder by Zero from the `rule.json` upload. Keep the other two.
-
-**Upgrading a workspace that already has `jama.json`.** The script creates rules and updates them by
-exact name. It never deletes, so a rule that left the file stays active in the workspace. Delete these
-seven in the workspace before uploading the new file:
-
-- `[MISRA] ISO 26262 Coding Standard for ASIL Unit Implementation`
-- `[MISRA] DO-178C Coding Standard Objectives for Airborne Software`
-- `[MISRA] IEC 62304 Coding Standard for Medical Device Software`
-- `[MISRA] EN 50128 Coding Standard for Railway Control and Protection`
-- `[MISRA] IEC 60880 Coding Standard for Nuclear Category A Functions`
-- `[MISRA] IEC 61508 Language Subset for Safety-Related Software`
-- `[MISRA] Traceability from Safety-Related Code to Its Requirement`
-
-All seven are replaced by `[MISRA] Safety-Related Source Outside the Named Language Subset`.
 
 See [`rule.schema.json`](rule.schema.json) for a JSON Schema of the whole file.
 
