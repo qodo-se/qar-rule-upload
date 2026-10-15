@@ -3,7 +3,7 @@
     "name": "[MISRA] Reliance on Undefined or Unspecified Behavior (Rule 1.2)",
     "category": "Reliability",
     "severity": "error",
-    "content": "Reliance on Undefined or Unspecified Behavior (MISRA C Rule 1.2). NEVER write code whose result depends on undefined, unspecified, indeterminate, or implementation-defined behavior. C does not trap these the way a managed runtime would: the program keeps running and may corrupt state that surfaces nowhere near the original defect. ALWAYS replace the construct with one the standard fully defines. Raise nothing unless the offending construct is visible in the diff. (MISRA C 2025 Rule 1.2 Required | MISRA C++ 2023 | Jama Software MISRA C guide)",
+    "content": "Reliance on Undefined or Unspecified Behavior (MISRA C Rule 1.2). NEVER write code whose result depends on undefined, unspecified, indeterminate, or implementation-defined behavior. C does not trap these the way a managed runtime would: the program keeps running and may corrupt state that surfaces nowhere near the original defect. ALWAYS replace the construct with one the standard fully defines. Raise nothing on signed overflow or division by zero or out-of-bounds access or an automatic variable read before assignment or a data race or a pointer conversion or an implicit conversion, because other rules in this pack cover each of them. Raise nothing unless the offending construct is visible in the diff. (MISRA C 2025 Rule 1.2 Required | MISRA C++ 2023 | Jama Software MISRA C guide)",
     "goodExamples": "uint32_t next_index(uint32_t i)\n{\n    i = i + 1U;\n    return i;\n}",
     "badExamples": "uint32_t next_index(uint32_t i)\n{\n    /* Unsequenced modification and use of i - undefined behavior. */\n    return i++ + i;\n}",
     "scopes": []
