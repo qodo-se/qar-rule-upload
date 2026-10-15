@@ -247,6 +247,20 @@ the workspace first, or scope the file before the first run.
 Scope `jama.json` to the MISRA repositories and `rule.json` to the rest. Where one repository needs
 both, delete Division and Remainder by Zero from the `rule.json` upload. Keep the other two.
 
+**`juliet.json` is a 30-rule set sized for the NIST Juliet C/C++ 1.3 suite.** Twenty rules are
+copied from `rule.json` and `jama.json` with title, citations, severity and category unchanged.
+Ten are new `[Qodo-CWE]` rules for weaknesses neither file covered. The list in `juliet.json`
+runs from memory and handle leaks to temporary files. Across the 64,123
+Juliet test cases the 30 rules name the CWE of 97.0% (74 of 119 CWEs). That figure counts CWE
+labels and is not a detection rate.
+
+Each new rule cites a CWE from MITRE CWE 4.20 and a DISA control from ASD STIG V6R3, with CERT C
+ids taken from the CWE taxonomy mappings. Severity follows the policy below. The two rules
+anchored to the CAT I control V-222609 ship as `error`. The other eight ship as `warning`.
+
+`[MISRA] Dynamic Memory Allocation in Critical Systems (Rule 21.3)` is left out on purpose. It
+bans `malloc` outright, so it would fire on the compliant half of nearly every heap test case.
+
 See [`rule.schema.json`](rule.schema.json) for a JSON Schema of the whole file.
 
 ### Fields

@@ -1,0 +1,247 @@
+[
+  {
+    "name": "[MISRA] Out-of-Bounds Array Access (Rule 1.2)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Out-of-Bounds Array Access (MISRA C Rule 1.2). NEVER index an array or step a pointer with a value that has not been shown to lie within the object; out-of-bounds access is undefined behavior and the usual mechanism behind memory corruption. ALWAYS bounds-check the index against the array's own extent before the access. Raise nothing unless the unvalidated index is visible in the diff. (MISRA C 2025 Rule 1.2 Required | CWE-125 | CWE-787 | Jama Software MISRA C guide)",
+    "goodExamples": "bool read_channel(const uint16_t *samples, size_t len, size_t idx, uint16_t *out)\n{\n    if (idx >= len) { return false; }\n    *out = samples[idx];\n    return true;\n}",
+    "badExamples": "uint16_t read_channel(const uint16_t *samples, size_t idx)\n{\n    /* Caller-supplied idx is never compared against the array extent. */\n    return samples[idx];\n}",
+    "scopes": []
+  },
+  {
+    "name": "[MISRA] Signed Integer Overflow (Rule 1.2)",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Signed Integer Overflow (MISRA C Rule 1.2). NEVER let a signed arithmetic expression overflow: the behavior is undefined, so it can resolve one way under the development compiler and another under the production compiler, passing every bench test and still failing in the field. ALWAYS range-check the operands before the operation, or perform it in an unsigned type of known width. Raise nothing unless the unchecked signed arithmetic is visible in the diff. (MISRA C 2025 Rule 1.2 Required | CWE-190 | Jama Software MISRA C guide)",
+    "goodExamples": "bool accumulate_torque(int32_t acc, int32_t delta, int32_t *out)\n{\n    if ((delta > 0) && (acc > (INT32_MAX - delta))) { return false; }\n    if ((delta < 0) && (acc < (INT32_MIN - delta))) { return false; }\n    *out = acc + delta;\n    return true;\n}",
+    "badExamples": "int32_t accumulate_torque(int32_t acc, int32_t delta)\n{\n    /* Overflows silently; undefined behavior, not a wrap. */\n    return acc + delta;\n}",
+    "scopes": []
+  },
+  {
+    "name": "[Qodo-CERT-C] Free of Non-Heap Memory (CWE-590)",
+    "category": "Security",
+    "severity": "warning",
+    "content": "Free of Non-Heap Memory (CWE-590). NEVER pass a pointer to free or delete unless that exact pointer came from a matching allocator. ALWAYS pair each allocation with its own deallocator, and NEVER free a pointer into the middle of an allocation. (CWE-590 | CERT C MEM34-C Exact | DISA ASD STIG V-222648 APSC-DV-003170 CAT II)",
+    "goodExamples": "char *p = malloc(64);\nif (p == NULL) return -ENOMEM;\nfree(p);\np = NULL;",
+    "badExamples": "char buf[64];\nfree(buf);                     // not from an allocator\nchar *p = malloc(64);\nfree(p + 4);                   // interior pointer"
+  },
+  {
+    "name": "[Qodo-CWE] OS Command Injection (CWE-78)",
+    "category": "Security",
+    "severity": "error",
+    "content": "OS Command Injection (CWE-78). NEVER pass a string built from untrusted input to system or popen or any exec variant that invokes a shell. ALWAYS pass arguments as a separate array to an API that spawns no shell. Raise nothing when the sink already takes an argument array. (CWE-78 | DISA ASD STIG V-222604 APSC-DV-002510 CAT I | OWASP A03:2021)",
+    "goodExamples": "int check_link_filtered(const char *ground_station) {\n    if (ground_station == nullptr) return -1;\n    for (const char *p = ground_station; *p; p++) {\n        bool ok = (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||\n                  (*p >= '0' && *p <= '9') || *p == '.' || *p == '-';\n        if (!ok) return -1;\n    }\n    pid_t pid = fork();\n    if (pid == 0) {\n        execl(\"/bin/ping\", \"ping\", \"-c\", \"1\", ground_station, (char *)nullptr);\n        _exit(127);\n    }\n    if (pid < 0) return -1;\n    int status = 0;\n    waitpid(pid, &status, 0);\n    return status;\n}",
+    "badExamples": "int check_link(const char *ground_station) {\n    char cmd[512];\n    snprintf(cmd, sizeof(cmd), \"ping -c 1 %s\", ground_station);\n    return system(cmd);\n}"
+  },
+  {
+    "name": "[Qodo-CWE] Path Traversal (CWE-22)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Path Traversal (CWE-22). NEVER open a file at a path built from untrusted input without canonicalizing it first. ALWAYS ADD a realpath call and a base-prefix check before the open. NEVER advise replacing an exact-match allowlist with a prefix check, because that is strictly weaker. (CWE-22 | DISA ASD STIG V-222605 APSC-DV-002520 CAT II | OWASP A01:2021)",
+    "goodExamples": "std::string read_named_product(const char *product_name) {\n    static const char *allowed[] = {\"ephemeris.log\", \"attitude.log\", \"power.log\"};\n    bool permitted = false;\n    for (const char *candidate : allowed) {\n        if (product_name && strcmp(product_name, candidate) == 0) {\n            permitted = true;\n            break;\n        }\n    }\n    if (!permitted) return \"\";\n    char path[512];\n    snprintf(path, sizeof(path), \"%s/%s\", PRODUCT_ROOT, product_name);\n    FILE *f = fopen(path, \"r\");\n    if (!f) return \"\";\n    char line[1024];\n    std::string out;\n    while (fgets(line, sizeof(line), f)) out += line;\n    fclose(f);\n    return out;\n}",
+    "badExamples": "std::string load_artefact(const std::string &requested_name) {\n    std::string path = std::string(ARTEFACT_ROOT) + requested_name;\n    FILE *f = fopen(path.c_str(), \"rb\");\n    if (!f) return \"\";\n    char buf[4096];\n    size_t n = fread(buf, 1, sizeof(buf), f);\n    fclose(f);\n    return std::string(buf, n);\n}"
+  },
+  {
+    "name": "[Qodo-CERT-C] Lossy Integer Conversion (CWE-197)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Lossy Integer Conversion (CWE-197). NEVER assign or cast an integer to a narrower or differently-signed type without first checking the value fits the destination range. ALWAYS validate before the conversion rather than inspecting the result afterwards. Raise nothing on a widening conversion between types of the same signedness. (CWE-197 | CERT C INT31-C | DISA ASD STIG V-222612 APSC-DV-002590 CAT I)",
+    "goodExamples": "long parsed = strtol(arg, &end, 10);\nif (parsed < 1 || parsed > 65535) return -1;\nuint16_t port = (uint16_t)parsed;",
+    "badExamples": "long parsed = strtol(arg, &end, 10);\nuint16_t port = (uint16_t)parsed;   // silently truncates"
+  },
+  {
+    "name": "[Qodo-CWE] Format String (CWE-134)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Format String (CWE-134). NEVER call sprintf and NEVER pass user-controlled input as the format string argument to a printf-family function. ALWAYS use a fixed format literal and pass user data as a typed argument. Raise nothing unless the offending call is visible in the diff. (CWE-134 | DISA ASD STIG V-222612 APSC-DV-002590 CAT I | CERT C FIO30-C Exact)",
+    "goodExamples": "void write_frame_label_checked(const char *operator_note) {\n    if (operator_note == nullptr) return;\n    printf(\"%s\\n\", operator_note);\n}",
+    "badExamples": "void write_frame_label(const char *operator_note) {\n    printf(operator_note);\n    printf(\"\\n\");\n}"
+  },
+  {
+    "name": "[Qodo-CWE] Unchecked Allocation Result (CWE-476)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Unchecked Allocation Result (CWE-476). NEVER dereference a pointer returned by malloc or calloc or realloc in the same function that allocated it unless a null test precedes the dereference. Raise nothing when the pointer is returned to a caller rather than dereferenced. (CWE-476 | DISA ASD STIG V-222656 APSC-DV-003235 CAT II | CERT C EXP34-C Exact)",
+    "goodExamples": "char *parse_frame_header_checked(const char *raw, size_t len) {\n    if (raw == nullptr) return nullptr;\n    char *copy = (char *)malloc(len + 1);\n    if (copy == nullptr) return nullptr;\n    memcpy(copy, raw, len);\n    copy[len] = '\\0';\n    return copy;\n}\n\nvoid *reserve_scratch(size_t bytes) {\n    return malloc(bytes);\n}",
+    "badExamples": "char *parse_frame_header(const char *raw, size_t len) {\n    char *copy = (char *)malloc(len + 1);\n    memcpy(copy, raw, len);\n    copy[len] = '\\0';\n    return copy;\n}"
+  },
+  {
+    "name": "[MISRA] Automatic Variable Read Before It Is Assigned",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Uninitialized Variable (MISRA C Rule 9.1). NEVER read an automatic variable before it has been assigned on every path that reaches the read: stack variables in C start as garbage, so the value is indeterminate rather than zero. ALWAYS assign at the point of declaration, or prove every branch writes before the first read. Raise nothing unless the unassigned read is visible in the diff. (MISRA C 2025 Rule 9.1 Mandatory | CWE-457 | Jama Software MISRA C guide)",
+    "goodExamples": "uint16_t clamp_setpoint(bool have_override, uint16_t override_v)\n{\n    uint16_t setpoint = DEFAULT_SETPOINT;\n    if (have_override) { setpoint = override_v; }\n    return setpoint;\n}",
+    "badExamples": "uint16_t clamp_setpoint(bool have_override, uint16_t override_v)\n{\n    uint16_t setpoint;\n    if (have_override) { setpoint = override_v; }\n    return setpoint; /* indeterminate when have_override is false */\n}",
+    "scopes": []
+  },
+  {
+    "name": "[Qodo-CWE] Double Free (CWE-415)",
+    "category": "Security",
+    "severity": "warning",
+    "content": "Double Free (CWE-415). NEVER release the same pointer twice along any path visible in the diff. ALWAYS set the pointer to NULL at the free site when a later release of it appears in the same function. Raise nothing when only one release is visible. (CWE-415 | DISA ASD STIG V-222648 APSC-DV-003170 CAT II | CERT C MEM31-C)",
+    "goodExamples": "void release_frame_once(Frame *f) {\n    if (f == nullptr) return;\n    free(f->payload);\n    f->payload = nullptr;\n    f->len = 0;\n}",
+    "badExamples": "void release_frame(Frame *f, bool retry) {\n    if (f == nullptr) return;\n    free(f->payload);\n    if (retry) {\n        free(f->payload);\n    }\n    f->len = 0;\n}"
+  },
+  {
+    "name": "[Qodo-CERT-C] Division and Remainder by Zero (CWE-369)",
+    "category": "Security",
+    "severity": "warning",
+    "content": "Division and Remainder by Zero (CWE-369). NEVER apply division or remainder to a divisor that an external input can drive to zero. ALWAYS test the divisor against zero on the path that reaches the operation. (CWE-369 | CERT C INT33-C Exact | DISA ASD STIG V-222656 APSC-DV-003235 CAT II)",
+    "goodExamples": "if (count == 0) return -EINVAL;\nunsigned rate = total / count;",
+    "badExamples": "unsigned rate = total / count;   // count comes from a request"
+  },
+  {
+    "name": "[MISRA] Reliance on Undefined or Unspecified Behavior (Rule 1.2)",
+    "category": "Reliability",
+    "severity": "error",
+    "content": "Reliance on Undefined or Unspecified Behavior (MISRA C Rule 1.2). NEVER write code whose result depends on undefined, unspecified, indeterminate, or implementation-defined behavior. C does not trap these the way a managed runtime would: the program keeps running and may corrupt state that surfaces nowhere near the original defect. ALWAYS replace the construct with one the standard fully defines. Raise nothing on signed overflow or division by zero or out-of-bounds access or an automatic variable read before assignment or a data race or a pointer conversion or an implicit conversion, because other rules in this pack cover each of them. Raise nothing unless the offending construct is visible in the diff. (MISRA C 2025 Rule 1.2 Required | MISRA C++ 2023 | Jama Software MISRA C guide)",
+    "goodExamples": "uint32_t next_index(uint32_t i)\n{\n    i = i + 1U;\n    return i;\n}",
+    "badExamples": "uint32_t next_index(uint32_t i)\n{\n    /* Unsequenced modification and use of i - undefined behavior. */\n    return i++ + i;\n}",
+    "scopes": []
+  },
+  {
+    "name": "[Qodo-CWE] Allocation Size Overflow (CWE-190)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Allocation Size Overflow (CWE-190). NEVER derive an allocation size from arithmetic on an externally supplied value unless the result is checked for wraparound in the type the arithmetic is performed in. ALWAYS bound the count against the maximum of that operand type divided by the element size. A SIZE_MAX bound on narrower operands is inert and MUST NOT be offered as the fix. (CWE-190 | CWE-131 secondary | DISA ASD STIG V-222612 APSC-DV-002590 CAT I | CERT C MEM07-C)",
+    "goodExamples": "void *reserve_frame_pool_bounded(size_t count, size_t width) {\n    if (width != 0 && count > SIZE_MAX / width) return nullptr;\n    if (count == 0 || width == 0) return nullptr;\n    return calloc(count, width);\n}",
+    "badExamples": "void *reserve_frame_pool(unsigned int count, unsigned int width) {\n    unsigned int total = count * width;\n    return malloc(total);\n}"
+  },
+  {
+    "name": "[Qodo-CWE] Use After Free (CWE-416)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Use After Free (CWE-416). NEVER read from or write through a pointer after its memory has been released. ALWAYS null the pointer at the free site when the same function reads it afterwards. Raise nothing on a raw pointer that is never read after release. (CWE-416 | DISA ASD STIG V-222648 APSC-DV-003170 CAT II | CERT C MEM30-C Exact)",
+    "goodExamples": "std::string take_session_copy(const std::string &key) {\n    auto it = g_sessions.find(key);\n    if (it == g_sessions.end()) return \"\";\n    std::string out(it->second);\n    free(it->second);\n    g_sessions.erase(it);\n    return out;\n}",
+    "badExamples": "const char *take_session(const std::string &key) {\n    auto it = g_sessions.find(key);\n    if (it == g_sessions.end()) return nullptr;\n    char *value = it->second;\n    free(value);\n    g_sessions.erase(it);\n    return value;\n}"
+  },
+  {
+    "name": "[Qodo-CMMC] Least Privilege in Code (CWE-250)",
+    "category": "Security",
+    "severity": "warning",
+    "content": "Least Privilege in Code (CWE-250). NEVER run a process or container or database session with more privilege than its function needs. ALWAYS drop privilege after any step that required it, and ALWAYS prefer a scoped role over an administrative one. Raise nothing when the elevated step is followed by an explicit drop. (CWE-250 | CMMC AC.L2-3.1.5 | DISA ASD STIG V-222429 APSC-DV-000500 CAT II)",
+    "goodExamples": "# Dockerfile\nFROM base\nRUN useradd -r appuser\nUSER appuser\nCMD [\"/app/server\"]",
+    "badExamples": "# Dockerfile\nFROM base\nCMD [\"/app/server\"]   # runs as root"
+  },
+  {
+    "name": "[Qodo-OWASP] Hard-coded Credential (CWE-798)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Hard-coded Credential (CWE-798). NEVER place a password or API key or bearer token or private key as a literal in source or in a committed configuration file. ALWAYS read the credential at runtime from an injected secret or a secret manager. Raise nothing on an obvious placeholder or a value read from the environment. (CWE-798 | OWASP A07:2025 | DISA ASD STIG V-222542 APSC-DV-001740 CAT I)",
+    "goodExamples": "import os\nDB_PASSWORD = os.environ[\"DB_PASSWORD\"]\nAPI_KEY = os.environ[\"API_KEY\"]",
+    "badExamples": "DB_PASSWORD = \"hunter2\"\nAPI_KEY = \"sk-live-9f3a2b\""
+  },
+  {
+    "name": "[Qodo-CMMC] CUI in Transit (CWE-319)",
+    "category": "Security",
+    "severity": "error",
+    "content": "CUI in Transit (CWE-319). NEVER transmit CUI over an unauthenticated or unencrypted channel. ALWAYS require TLS 1.2 or higher with certificate verification left enabled. Raise nothing on a loopback or in-process call that never crosses a host boundary. (CWE-319 | CMMC SC.L2-3.13.8 | DISA ASD STIG V-222596 APSC-DV-002440 CAT I)",
+    "goodExamples": "import ssl\nimport requests\nfrom requests.adapters import HTTPAdapter\n\nclass TLS12Adapter(HTTPAdapter):\n    def init_poolmanager(self, *args, **kwargs):\n        context = ssl.create_default_context(cafile=\"/etc/pki/ca-bundle.crt\")\n        context.minimum_version = ssl.TLSVersion.TLSv1_2\n        kwargs[\"ssl_context\"] = context\n        return super().init_poolmanager(*args, **kwargs)\n\nsession = requests.Session()\nsession.mount(\"https://\", TLS12Adapter())\nsession.post(\"https://internal-api/cui\", json=payload)  # TLS 1.2+, verification on",
+    "badExamples": "requests.post(\"http://internal-api/cui\", json=payload, verify=False)"
+  },
+  {
+    "name": "[MISRA] Unsafe Pointer Conversion (Rule 11.x)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Pointer Conversion (MISRA C Rule 11 series). NEVER cast between a pointer and an integer, between incompatible object pointer types, or away from const or volatile; these conversions are the mechanism behind alignment faults and memory corruption. ALWAYS carry data through a declared type, or copy through unsigned char when a byte view is genuinely required. Raise nothing unless the conversion is visible in the diff. (MISRA C 2025 Rule 11.1-11.8 Required | CWE-704 | Jama Software MISRA C guide)",
+    "goodExamples": "void load_header(const uint8_t *bytes, frame_header_t *out)\n{\n    (void)memcpy(out, bytes, sizeof(*out));\n}",
+    "badExamples": "frame_header_t *load_header(uint8_t *bytes)\n{\n    /* Alignment and aliasing both unchecked. */\n    return (frame_header_t *)bytes;\n}",
+    "scopes": []
+  },
+  {
+    "name": "[Qodo-CERT-C] Use of a Closed Resource (CWE-910)",
+    "category": "Security",
+    "severity": "warning",
+    "content": "Use of a Closed Resource (CWE-910). NEVER read from or write to or reposition a file or socket handle after it has been closed. ALWAYS set the handle to an invalid sentinel at the close site so a later use is obvious. (CWE-910 | CERT C FIO46-C Exact | DISA ASD STIG V-222656 APSC-DV-003235 CAT II)",
+    "goodExamples": "fclose(f);\nf = NULL;\nif (f == NULL) return -EBADF;",
+    "badExamples": "fclose(f);\nfread(buf, 1, n, f);   // handle already closed"
+  },
+  {
+    "name": "[Qodo-OWASP] Broken Cryptography (CWE-327)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Broken Cryptography (CWE-327). NEVER use MD5 or SHA-1 or DES or RC4 or ECB mode for any security purpose. NEVER draw a security-relevant value from rand or Math.random or a clock. Raise nothing on a password digest written for storage, because password storage is CWE-256 and not this rule. ALWAYS use a FIPS-validated algorithm and a cryptographic random source. (CWE-327 | CWE-338 secondary | OWASP A04:2025 | DISA ASD STIG V-222555 APSC-DV-001860 CAT I)",
+    "goodExamples": "Security.addProvider(new BouncyCastleFipsProvider());\nMessageDigest md = MessageDigest.getInstance(\"SHA-256\", \"BCFIPS\");\nbyte[] token = new byte[32];\nSecureRandom.getInstance(\"DEFAULT\", \"BCFIPS\").nextBytes(token);\n// FIPS 140-3 certificate number recorded in the SSP",
+    "badExamples": "MessageDigest md = MessageDigest.getInstance(\"MD5\");\nlong token = new Random().nextLong();"
+  },
+  {
+    "name": "[Qodo-CWE] Missing Release of Memory or Handle (CWE-401)",
+    "category": "Reliability",
+    "severity": "warning",
+    "content": "Missing Release of Memory or Handle (CWE-401). NEVER let a function drop its last reference to memory from malloc or calloc or realloc or strdup or new. NEVER let it drop the last reference to a handle from fopen or open or socket. ALWAYS release with the matching free or delete or fclose or close on every exit path visible in the diff, including early error returns. Raise nothing when the pointer or handle is returned to the caller or stored somewhere that outlives the function. (CWE-401 | CWE-404 CWE-772 CWE-773 CWE-775 secondary | DISA ASD STIG V-222594 APSC-DV-002400 CAT II | CERT C MEM31-C Exact | CERT C FIO42-C)",
+    "goodExamples": "void print_label(void)\n{\n    char *data = (char *)malloc(100);\n    if (data == NULL) { return; }\n    strcpy(data, \"A String\");\n    printLine(data);\n    free(data);\n}",
+    "badExamples": "void print_label(void)\n{\n    char *data = (char *)malloc(100);\n    if (data == NULL) { return; }\n    strcpy(data, \"A String\");\n    printLine(data);\n    /* data is never freed */\n}"
+  },
+  {
+    "name": "[Qodo-CWE] Unchecked Return Value (CWE-252)",
+    "category": "Reliability",
+    "severity": "warning",
+    "content": "Unchecked Return Value (CWE-252). NEVER discard the result of fgets or fread or fwrite or fputs or fputc or fprintf or scanf or fscanf or sscanf or remove or rename. NEVER test that result against the wrong failure value, such as fgets against 0 rather than NULL or fwrite against 0 rather than the requested count. ALWAYS compare with the failure value the function documents and handle the failure. Raise nothing on printf to stdout or on a call cast to void with a comment that says why. (CWE-252 | CWE-253 CWE-390 CWE-391 secondary | DISA ASD STIG V-222656 APSC-DV-003235 CAT II | CERT C ERR33-C Imprecise)",
+    "goodExamples": "if (fgets(buf, sizeof(buf), stdin) == NULL)\n{\n    printLine(\"fgets failed\");\n    return;\n}",
+    "badExamples": "fgets(buf, sizeof(buf), stdin);\nif (fwrite(buf, sizeof(char), len, f) == 0) { /* wrong check: short write passes */ }"
+  },
+  {
+    "name": "[Qodo-CWE] Untrusted Library or Search Path (CWE-427)",
+    "category": "Security",
+    "severity": "error",
+    "content": "Untrusted Library or Search Path (CWE-427). NEVER pass a library name or path that came from input or the environment or a file to LoadLibrary or dlopen. NEVER call LoadLibrary or dlopen or execlp or execvp with a bare name that the search path resolves. NEVER prepend a directory from input to PATH. ALWAYS load from an absolute path the program controls. Raise nothing when the argument is an absolute path literal. Raise nothing about shell metacharacters in a command string, because that is CWE-78 and not this rule. (CWE-427 | CWE-114 CWE-426 secondary | DISA ASD STIG V-222609 APSC-DV-002560 CAT I | CERT C ENV03-C)",
+    "goodExamples": "HMODULE h = LoadLibraryA(\"C:\\\\Windows\\\\System32\\\\winsock.dll\");",
+    "badExamples": "char data[100];\nfgets(data, sizeof(data), stdin);\nHMODULE h = LoadLibraryA(data);\nHMODULE w = LoadLibraryA(\"winsock.dll\");"
+  },
+  {
+    "name": "[Qodo-CWE] Input-Controlled Resource Consumption (CWE-400)",
+    "category": "Reliability",
+    "severity": "warning",
+    "content": "Input-Controlled Resource Consumption (CWE-400). NEVER use a count read from input or a socket or the environment as a loop bound or a sleep duration or an allocation size without first checking it against a fixed upper limit. ALWAYS reject or clamp a value above that limit before the loop or the call. Raise nothing when the bound is a constant or is checked against a constant in the same function. Raise nothing about arithmetic that wraps, because that is CWE-190 and not this rule. (CWE-400 | CWE-606 CWE-789 CWE-834 secondary | DISA ASD STIG V-222594 APSC-DV-002400 CAT II)",
+    "goodExamples": "int count = atoi(input);\nif (count > 0 && count <= MAX_COUNT)\n{\n    for (int i = 0; i < count; i++) { printLine(\"Hello\"); }\n}",
+    "badExamples": "int count = atoi(input);\nfor (int i = 0; i < count; i++) { printLine(\"Hello\"); }\nsleep(count);\nchar *buf = (char *)malloc(count);"
+  },
+  {
+    "name": "[Qodo-CWE] Unused Assignment and Logic Slips (CWE-563)",
+    "category": "Correctness",
+    "severity": "warning",
+    "content": "Unused Assignment and Logic Slips (CWE-563). NEVER assign a value to a local variable that no later statement reads. NEVER write an if or while condition that is constant at compile time or that uses = where == was meant. NEVER write a comparison as a statement on its own. NEVER let a switch case fall through without a fallthrough comment or attribute. ALWAYS remove the dead store or correct the operator. Raise nothing on a variable whose address is passed to a function. (CWE-563 | CWE-570 CWE-571 CWE-481 CWE-482 CWE-484 secondary | DISA ASD STIG V-222648 APSC-DV-003170 CAT II | CERT C MSC00-C | CERT C MSC07-C)",
+    "goodExamples": "int data = compute();\nprintIntLine(data);\nif (x == 5) { printLine(\"five\"); }",
+    "badExamples": "int data = 5;\ndata = 10; /* first value never read */\nif (x = 5) { printLine(\"five\"); }\nx == 6;"
+  },
+  {
+    "name": "[Qodo-CWE] LDAP Injection (CWE-90)",
+    "category": "Security",
+    "severity": "error",
+    "content": "LDAP Injection (CWE-90). NEVER build an LDAP search filter by concatenating or formatting a value from input into it before it reaches ldap_search or ldap_search_s or ldap_search_ext or ldap_search_ext_s. ALWAYS escape the characters * ( ) backslash and NUL in the value before it enters the filter, or reject input that contains them. Raise nothing when the filter is a constant. (CWE-90 | DISA ASD STIG V-222609 APSC-DV-002560 CAT I)",
+    "goodExamples": "char escaped[256];\nif (!ldap_escape_filter(data, escaped, sizeof(escaped))) { return; }\nsnprintf(filter, sizeof(filter), \"(cn=%s)\", escaped);\nldap_search_ext_s(ld, base, LDAP_SCOPE_SUBTREE, filter, NULL, 0, NULL, NULL, NULL, 0, &res);",
+    "badExamples": "fgets(data, sizeof(data), stdin);\nsnprintf(filter, sizeof(filter), \"(cn=%s)\", data);\nldap_search_ext_s(ld, base, LDAP_SCOPE_SUBTREE, filter, NULL, 0, NULL, NULL, NULL, 0, &res);"
+  },
+  {
+    "name": "[Qodo-CWE] Sensitive Data Left in Memory or Output (CWE-226)",
+    "category": "Security",
+    "severity": "warning",
+    "content": "Sensitive Data Left in Memory or Output (CWE-226). NEVER free or realloc a buffer that held a password or key without first clearing it with SecureZeroMemory or explicit_bzero or memset_s. NEVER keep a password or key in memory that VirtualLock or mlock has not locked. NEVER print a password or key to a log or stdout or stderr. ALWAYS clear with a function the compiler cannot remove. Raise nothing unless the diff names or documents the value as a password or key or secret. (CWE-226 | CWE-244 CWE-591 CWE-534 CWE-535 secondary | DISA ASD STIG V-222592 APSC-DV-002380 CAT II | V-222444 APSC-DV-000650 CAT II | CERT C MEM03-C | CERT C MEM06-C)",
+    "goodExamples": "char *password = (char *)malloc(100);\nif (password == NULL) { return; }\nread_password(password, 100);\nuse_password(password);\nSecureZeroMemory(password, 100);\nfree(password);",
+    "badExamples": "char *password = (char *)malloc(100);\nif (password == NULL) { return; }\nread_password(password, 100);\nuse_password(password);\nprintLine(password);\nfree(password);"
+  },
+  {
+    "name": "[Qodo-CWE] Reachable Assertion (CWE-617)",
+    "category": "Reliability",
+    "severity": "warning",
+    "content": "Reachable Assertion (CWE-617). NEVER assert on a value read from input or a socket or the environment or a file, because a failing assert aborts the process and gives whoever controls the input a denial of service. ALWAYS validate an external value with an explicit check that returns an error. Raise nothing on an assert over an internal invariant that no input reaches. (CWE-617 | DISA ASD STIG V-222594 APSC-DV-002400 CAT II)",
+    "goodExamples": "int data = atoi(input);\nif (data <= ASSERT_VALUE) { printLine(\"value too small\"); return; }",
+    "badExamples": "int data = atoi(input);\nassert(data > ASSERT_VALUE);"
+  },
+  {
+    "name": "[Qodo-CWE] Embedded Malicious Logic (CWE-506)",
+    "category": "Security",
+    "severity": "warning",
+    "content": "Embedded Malicious Logic (CWE-506). NEVER add a branch that compares the current date or time against a fixed value and then deletes data or runs a command or changes privileges. NEVER add a branch that grants access or runs a command when input equals a hard-coded string. NEVER add code that decodes and executes an embedded payload. ALWAYS remove the branch. Raise nothing on a date comparison that only formats or logs. (CWE-506 | CWE-510 CWE-511 secondary | DISA ASD STIG V-222648 APSC-DV-003170 CAT II)",
+    "goodExamples": "time_t now = time(NULL);\nprintLine(ctime(&now));",
+    "badExamples": "time_t now = time(NULL);\nif (now > TIME_CHECK) { UNLINK(\"important_file.txt\"); }\nif (strcmp(input, \"letmein\") == 0) { system(\"cmd.exe\"); }"
+  },
+  {
+    "name": "[Qodo-CWE] Insecure Temporary File or TOCTOU (CWE-377)",
+    "category": "Security",
+    "severity": "warning",
+    "content": "Insecure Temporary File or TOCTOU (CWE-377). NEVER create a temporary file by opening a name that tmpnam or tempnam or mktemp or _mktemp returned. NEVER check a path with access or stat and then open it by the same name. ALWAYS create with mkstemp, or open with O_CREAT and O_EXCL, and then use only the descriptor you opened. Raise nothing when the open already passes O_EXCL or uses mkstemp. (CWE-377 | CWE-367 secondary | DISA ASD STIG V-222567 APSC-DV-001995 CAT II | CERT C FIO01-C | CERT C CON33-C Imprecise)",
+    "goodExamples": "char name[] = \"/tmp/fileXXXXXX\";\nint fd = mkstemp(name);\nif (fd == -1) { return; }\nwrite(fd, \"x\", 1);\nclose(fd);",
+    "badExamples": "char *name = tmpnam(NULL);\nFILE *f = fopen(name, \"w+\");\nif (access(path, W_OK) == 0) { f = fopen(path, \"w\"); }"
+  }
+]
